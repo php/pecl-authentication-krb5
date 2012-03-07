@@ -86,7 +86,7 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 
 
 	AC_CHECK_LIB(krb5, krb5_cc_new_unique, 
-		[ AC_DEFINE(HAVE_KRB5_CC_NEW_UNQIUE, [], [Have krb5_cc_new_unique function]) ], 
+		[ AC_DEFINE(HAVE_KRB5_CC_NEW_UNIQUE, [], [Have krb5_cc_new_unique function]) ], 
 		,
 		[ -L $KERBEROS_DIR/lib ] )
 

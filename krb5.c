@@ -373,8 +373,8 @@ static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *c
 		SEPARATE_ZVAL(tmp);
 		convert_to_string_ex(tmp);
 
-		if ((in_tkt_svc = emalloc(1+Z_STRLEN_PP(tmp)))) {
-			strncpy(in_tkt_svc, Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));
+		if ((*in_tkt_svc = emalloc(1+Z_STRLEN_PP(tmp)))) {
+			strncpy(*in_tkt_svc, Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));
 			in_tkt_svc[Z_STRLEN_PP(tmp)] = '\0';
 		}
 
