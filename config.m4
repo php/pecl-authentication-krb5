@@ -80,7 +80,7 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 
 
 	if test -z "$IMPLEMENTATION"; then
-		AC_MSG_ERROR("No kerberos libraries (MIT/Heimdal) found");
+		AC_MSG_ERROR([No kerberos libraries (MIT/Heimdal) found]);
 		exit
 	fi
 

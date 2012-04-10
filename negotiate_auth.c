@@ -23,7 +23,7 @@
 #include "php_krb5.h"
 #include "php_krb5_gssapi.h"
 #include "SAPI.h"
-#include "standard/base64.h"
+#include "ext/standard/base64.h"
 #include <math.h>
 #include <netdb.h>
 #include <sys/socket.h>
