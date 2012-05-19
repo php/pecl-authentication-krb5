@@ -80,7 +80,7 @@ PHP_METHOD(GSSAPIContext, verifyMic);
 PHP_METHOD(GSSAPIContext, wrap);
 PHP_METHOD(GSSAPIContext, unwrap);
 
-static function_entry krb5_gssapi_context_functions[] = {
+static zend_function_entry krb5_gssapi_context_functions[] = {
 	PHP_ME(GSSAPIContext, registerAcceptorIdentity, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, acquireCredentials, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, inquireCredentials, NULL, ZEND_ACC_PUBLIC)
@@ -180,9 +180,13 @@ zend_object_value php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS
 
 	INIT_STD_OBJECT(object->std, ce);
 
-	zend_hash_copy(object->std.properties, &ce->default_properties,
-					(copy_ctor_func_t) zval_add_ref, NULL,
+#if PHP_VERSION_ID < 50399
+    zend_hash_copy(object->std.properties, &ce->default_properties,
+	        		(copy_ctor_func_t) zval_add_ref, NULL,
 					sizeof(zval*));
+#else
+	object_properties_init(&(object->std), ce);
+#endif
 
 	retval.handle = zend_objects_store_put(object, php_krb5_gssapi_context_object_dtor, NULL, NULL TSRMLS_CC);
 

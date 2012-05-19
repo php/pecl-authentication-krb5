@@ -24,7 +24,7 @@
 #include "php_krb5_kadm.h"
 
 
-static function_entry krb5_kadm5_principal_functions[] = {
+static zend_function_entry krb5_kadm5_principal_functions[] = {
 	PHP_ME(KADM5Principal, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(KADM5Principal, load, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, save, NULL, ZEND_ACC_PUBLIC)
@@ -102,9 +102,13 @@ zend_object_value php_krb5_kadm5_principal_object_new(zend_class_entry *ce TSRML
 
 	zend_object_std_init(&(object->std), ce TSRMLS_CC);
 
+#if PHP_VERSION_ID < 50399
 	zend_hash_copy(object->std.properties, &ce->default_properties,
 					(copy_ctor_func_t) zval_add_ref, NULL, 
 					sizeof(zval*));
+#else
+	object_properties_init(&(object->std), ce);
+#endif
 
 	retval.handle = zend_objects_store_put(object, php_krb5_kadm5_principal_object_dtor, NULL, NULL TSRMLS_CC);
 	retval.handlers = &krb5_kadm5_principal_handlers;

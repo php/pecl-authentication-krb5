@@ -28,7 +28,7 @@
 zend_object_handlers krb5_kadm5_handlers;
 
 
-static function_entry krb5_kadm5_functions[] = {
+static zend_function_entry krb5_kadm5_functions[] = {
 	PHP_ME(KADM5, __construct, NULL, ZEND_ACC_CTOR | ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5, getPrincipal, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5, getPrincipals, NULL, ZEND_ACC_PUBLIC)
@@ -78,9 +78,13 @@ zend_object_value php_krb5_kadm5_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	zend_object_std_init(&(object->std), ce TSRMLS_CC);
 
+#if PHP_VERSION_ID < 50399
 	zend_hash_copy(object->std.properties, &ce->default_properties,
 					(copy_ctor_func_t) zval_add_ref, NULL,
 					sizeof(zval*));
+#else
+	object_properties_init(&(object->std), ce);
+#endif
 
 	retval.handle = zend_objects_store_put(object, php_krb5_kadm5_object_dtor, NULL, NULL TSRMLS_CC);
 
@@ -157,10 +161,17 @@ PHP_METHOD(KADM5, __construct)
  
  	} else {
  
+#if PHP_VERSION_ID < 50399
   		if((PG(safe_mode) && !php_checkuid(sprinc, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
   			php_check_open_basedir(sprinc TSRMLS_CC)) {
   			RETURN_FALSE;
   		}
+#else
+  		if( php_check_open_basedir(sprinc TSRMLS_CC)) {
+  			RETURN_FALSE;
+  		}
+#endif
+
 #ifdef HAVE_OFFICIAL_KADM5
  		retval = kadm5_init_with_skey(obj->ctx,sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);

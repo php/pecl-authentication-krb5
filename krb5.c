@@ -56,7 +56,7 @@ PHP_METHOD(KRB5CCache, setConfig);
 PHP_METHOD(KRB5CCache, getTktAttrs);
 PHP_METHOD(KRB5CCache, renew);
 
-static function_entry krb5_ccache_functions[] = {
+static zend_function_entry krb5_ccache_functions[] = {
 		PHP_ME(KRB5CCache, initPassword, NULL, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, initKeytab, NULL, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, getName, NULL, ZEND_ACC_PUBLIC)
@@ -293,10 +293,13 @@ zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 
 
 	INIT_STD_OBJECT(object->std, ce);
-
-	zend_hash_copy(object->std.properties, &ce->default_properties,
-					(copy_ctor_func_t) zval_add_ref, NULL,
+#if PHP_VERSION_ID < 50399
+    zend_hash_copy(object->std.properties, &ce->default_properties,
+	        		(copy_ctor_func_t) zval_add_ref, NULL,
 					sizeof(zval*));
+#else
+	object_properties_init(&(object->std), ce);
+#endif
 
 	retval.handle = zend_objects_store_put(object, php_krb5_ccache_object_dtor, NULL, NULL TSRMLS_CC);
 
@@ -824,10 +827,14 @@ PHP_METHOD(KRB5CCache, initKeytab)
 		RETURN_FALSE;
 	}
 
-#if PHP_MAJOR_VERSION < 6
+#if PHP_VERSION_ID < 50399
 	if ( (PG(safe_mode) &&
 			!php_checkuid(skeytab, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
 		php_check_open_basedir(skeytab TSRMLS_CC)) {
+		RETURN_FALSE;
+	}
+#else
+	if ( php_check_open_basedir(skeytab TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 #endif
