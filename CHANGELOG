@@ -1,3 +1,6 @@
+Version 1.0.0rc4:
+- [BUILDBUG] Other library layouts are now supported
+
 Version 1.0.0rc3:
 - [BUG] Fixed usage of kadm functions when bulding against officialy exported (post 1.7) MIT kadm libraries
 - [BUG] Bug fixes by Marc Seecof

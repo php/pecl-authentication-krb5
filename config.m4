@@ -2,17 +2,34 @@ PHP_ARG_WITH(krb5, for kerberos support,
  [  --with-krb5             Include generic kerberos5/GSSAPI support]
  )
 
+PHP_ARG_WITH(krb5lib, kerberos library path override,
+ [  --with-krb5lib=P          library path], no, no)
+
+
+PHP_ARG_WITH(krb5inc, kerberos include path override,
+ [  --with-krb5inc=P          include path], no, no)
+
 PHP_ARG_WITH(krb5kadm, for kerberos KADM5 support,
- [  --with-krb5kadm	    Include KADM5 Kerberos Administration Support - MIT only],
+ [  --with-krb5kadm[=S]      Include KADM5 Kerberos Administration Support - MIT only],
  no, no
  )
 
 if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
-	echo $PHP_KRB5KADM
+
+	
+	KERBEROS_INC_DIR=/usr/include
+
+	if test "$PHP_KRB5INC" != "no"; then
+		KERBEROS_INC_DIR="$PHP_KRB5INC"
+	fi
+
+	PHP_ADD_INCLUDE($KERBEROS_INC_DIR)
+		
+
 	if test "$PHP_KRB5KADM" != "no"; then
 
 	 	AC_MSG_CHECKING([whether KADM is exported])
-		if test -f /usr/include/kadm5/admin.h ; then
+		if test -f $KERBEROS_INC_DIR/kadm5/admin.h ; then
  			AC_MSG_RESULT([yes])
 	 		AC_DEFINE([HAVE_OFFICIAL_KADM5], [], [Having officially exported KADM5 interface])
 	 	else
@@ -26,43 +43,39 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 			else
 				HEADERS="kdb.h kadm5/admin.h kadm5/kadm_err.h"
 				for FILE in $HEADERS ; do
-					if test -r $PHP_KRB5/src/$FILE ; then
+					if test -r $PHP_KRB5KADM/src/$FILE ; then
 						AC_MSG_RESULT([not found])
-						AC_MSG_ERROR([Make sure that $PHP_KRB5 points to a configured and built MIT krb5 source])
+						AC_MSG_ERROR([Make sure that $PHP_KRB5ADM points to a configured and built MIT krb5 source])
 						exit
 					fi
 				done
 				AC_MSG_RESULT([found])
-				PHP_ADD_INCLUDE($PHP_KRB5/include)
+				PHP_ADD_INCLUDE($PHP_KRB5KADM/include)
 			fi
-			PHP_ADD_INCLUDE(/usr/include/et)
+			PHP_ADD_INCLUDE($KERBERROS_INC_DIR/et)
 		fi
 	fi
 
-	test "$PHP_KRB5" = "yes" && PHP_KRB5="/usr/ /usr/local"
+	test "$PHP_KRB5LIB" == "no" && PHP_KRB5LIB="/usr/lib/x86_64-linux-gnu/ /usr/lib64 /usr/local/lib64/ /usr/lib /usr/local/lib"
 
-	AC_MSG_CHECKING([for MIT kerberos/GSSAPI libraries in $PHP_KRB5])
-	for DIRECTORY in $PHP_KRB5; do
-		test -r "$DIRECTORY/lib/libgssapi_krb5.so" && test -r "$DIRECTORY/lib/libkrb5.so" && KERBEROS_DIR=$DIRECTORY && break
-
-		test -r "$DIRECTORY/lib64/libgssapi_krb5.so" && test -r "$DIRECTORY/lib64/libkrb5.so" && KERBEROS_DIR=$DIRECTORY && break
+	AC_MSG_CHECKING([for MIT kerberos/GSSAPI libraries in $PHP_KRB5LIB])
+	for DIRECTORY in $PHP_KRB5LIB; do
+		test -r "$DIRECTORY/libgssapi_krb5.so" && test -r "$DIRECTORY/libkrb5.so" && KERBEROS_LIB_DIR=$DIRECTORY/lib && break
 	done
 
-	PHP_ADD_INCLUDE(/usr/include/et)
+	PHP_ADD_INCLUDE($KERBEROS_INC_DIR/et)
 
 
-	if test -z "$KERBEROS_DIR" ; then
+	if test -z "$KERBEROS_LIB_DIR" ; then
 		AC_MSG_RESULT([not found])
 
 		AC_MSG_CHECKING([for Heimdal kerberos/GSSAPI libraries])
-		for DIRECTORY in $PHP_KRB5 ; do
-			test -r "$DIRECTORY/lib/libgssapi.so" && test -r "$DIRECTORY/lib/libkrb5.so" && KERBEROS_DIR=$DIRECTORY && break
-			
-			test -r "$DIRECTORY/lib64/libgssapi.so" && test -r "$DIRECTORY/lib64/libkrb5.so" && KERBEROS_DIR=$DIRECTORY && break
+		for DIRECTORY in $PHP_KRB5LIB ; do
+			test -r "$DIRECTORY/libgssapi.so" && test -r "$DIRECTORY/libkrb5.so" && KERBEROS_LIB_DIR=$DIRECTORY/lib && break
 		done
 
 
-		if test -z "$KERBEROS_DIR" ; then
+		if test -z "$KERBEROS_LIB_DIR" ; then
 			AC_MSG_RESULT([not found])
 		else
 			AC_MSG_RESULT([found])
@@ -75,9 +88,6 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 		AC_DEFINE(HAVE_KRB5_MIT, [], [Do we have MIT kerberos library])
 	fi
 
-	echo "dir: $KERBEROS_DIR"
-
-
 
 	if test -z "$IMPLEMENTATION"; then
 		AC_MSG_ERROR([No kerberos libraries (MIT/Heimdal) found]);
@@ -88,41 +98,41 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 	AC_CHECK_LIB(krb5, krb5_cc_new_unique, 
 		[ AC_DEFINE(HAVE_KRB5_CC_NEW_UNIQUE, [], [Have krb5_cc_new_unique function]) ], 
 		,
-		[ -L $KERBEROS_DIR/lib ] )
+		[ -L $KERBEROS_LIB_DIR ] )
 
 	AC_CHECK_LIB(krb5, krb5_get_error_message,
 		[ AC_DEFINE(HAVE_KRB5_GET_ERROR_MESSAGE, [], [Have krb5_get_error_message function]) ],
 		,
-		[ -L $KERBEROS_DIR/lib ] )
+		[ -L $KERBEROS_LIB_DIR ] )
 
 	AC_CHECK_LIB(krb5, krb5_random_confounder,
 		[ AC_DEFINE(HAVE_KRB5_RANDOM_CONFOUNDER, [], [Have krb5_random_confounder function]) ],
 		,
-		[ -L $KERBEROS_DIR/lib ] )
+		[ -L $KERBEROS_LIB_DIR ] )
 
 
 	AC_CHECK_LIB(krb5, krb5_c_random_make_octets,
 		[ AC_DEFINE(HAVE_KRB5_RANDOM_MAKE_OCTETS, [], [Have krb5_c_random_make_octets function]) ],
                 ,
-                [ -L $KERBEROS_DIR/lib ] )
+                [ -L $KERBEROS_LIB_DIR ] )
 
 	
 	SOURCE_FILES="krb5.c negotiate_auth.c gssapi.c"
 
 	
-	PHP_ADD_LIBRARY_WITH_PATH(krb5, $KERBEROS_DIR/lib, KRB5_SHARED_LIBADD)
+	PHP_ADD_LIBRARY_WITH_PATH(krb5, $KERBEROS_LIB_DIR, KRB5_SHARED_LIBADD)
 
 	echo $IMPLEMENTATION
 
 	if test "$IMPLEMENTATION" = "heimdal"; then
-		PHP_ADD_LIBRARY_WITH_PATH(gssapi, $KERBEROS_DIR/lib, KRB5_SHARED_LIBADD)
+		PHP_ADD_LIBRARY_WITH_PATH(gssapi, $KERBEROS_LIB_DIR, KRB5_SHARED_LIBADD)
 	else
-		PHP_ADD_LIBRARY_WITH_PATH(gssapi_krb5, $KERBEROS_DIR/lib, KRB5_SHARED_LIBADD)
+		PHP_ADD_LIBRARY_WITH_PATH(gssapi_krb5, $KERBEROS_LIB_DIR, KRB5_SHARED_LIBADD)
 	fi
 
 	
 	if test "$PHP_KRB5KADM" != "no"; then
-		PHP_ADD_LIBRARY_WITH_PATH(kadm5clnt, $KERBEROS_DIR/lib, KRB5_SHARED_LIBADD)
+		PHP_ADD_LIBRARY_WITH_PATH(kadm5clnt, $KERBEROS_LIB_DIR, KRB5_SHARED_LIBADD)
 		SOURCE_FILES="${SOURCE_FILES} kadm.c kadm5_principal.c kadm5_policy.c"
 		AC_DEFINE(HAVE_KADM5, [], [Enable KADM5 support])
 	fi
