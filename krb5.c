@@ -86,7 +86,7 @@ zend_module_entry krb5_module_entry = {
     NULL,
     PHP_MINFO(krb5),
 #if ZEND_MODULE_API_NO >= 20010901
-    PHP_KRB5_EXT_VERSION,
+    PHP_KRB5_VERSION,
 #endif
     STANDARD_MODULE_PROPERTIES
 };
@@ -158,7 +158,7 @@ PHP_MINFO_FUNCTION(krb5)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "Kerberos5 support", "enabled");
-	php_info_print_table_row(2, "Version", PHP_KRB5_EXT_VERSION);
+	php_info_print_table_row(2, "Version", PHP_KRB5_VERSION);
 #ifdef HAVE_KRB5_MIT
 	php_info_print_table_row(2, "Kerberos library", "MIT");
 #endif
