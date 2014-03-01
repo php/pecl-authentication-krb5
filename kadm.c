@@ -151,14 +151,8 @@ PHP_METHOD(KADM5, __construct)
 
 		
 	if(!use_keytab) {
-#ifdef HAVE_OFFICIAL_KADM5
  		retval = kadm5_init_with_password(obj->ctx, sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
-#else
-  		retval = kadm5_init_with_password(sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
-  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
-#endif
- 
  	} else {
  
 #if PHP_VERSION_ID < 50399
@@ -172,13 +166,8 @@ PHP_METHOD(KADM5, __construct)
   		}
 #endif
 
-#ifdef HAVE_OFFICIAL_KADM5
  		retval = kadm5_init_with_skey(obj->ctx,sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
-#else
- 		retval = kadm5_init_with_skey(sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
-  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
-#endif
 	}
 
 	if(retval != KADM5_OK) {

@@ -52,7 +52,6 @@ PHP_METHOD(KRB5CCache, getEntries);
 PHP_METHOD(KRB5CCache, open);
 PHP_METHOD(KRB5CCache, save);
 PHP_METHOD(KRB5CCache, isValid);
-PHP_METHOD(KRB5CCache, setConfig);
 PHP_METHOD(KRB5CCache, getTktAttrs);
 PHP_METHOD(KRB5CCache, renew);
 
@@ -67,7 +66,6 @@ static zend_function_entry krb5_ccache_functions[] = {
 		PHP_ME(KRB5CCache, open, NULL, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, save, NULL, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, isValid, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, setConfig, NULL, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, getTktAttrs, NULL, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, renew, NULL, ZEND_ACC_PUBLIC)
 		{NULL, NULL, NULL}
@@ -157,14 +155,18 @@ PHP_MSHUTDOWN_FUNCTION(krb5)
 PHP_MINFO_FUNCTION(krb5)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "Kerberos5 support", "enabled");
-	php_info_print_table_row(2, "Version", PHP_KRB5_VERSION);
+	php_info_print_table_row(2, "Kerberos 5 support", "enabled");
+	php_info_print_table_row(2, "Extension version", PHP_KRB5_VERSION);
 #ifdef HAVE_KRB5_MIT
 	php_info_print_table_row(2, "Kerberos library", "MIT");
 #endif
 
 #ifdef HAVE_KRB5_HEIMDAL
 	php_info_print_table_row(2, "Kerberos library", "Heimdal");
+#endif
+
+#ifdef KRB5_VERSION
+	php_info_print_table_row(2, "Library version", KRB5_VERSION);
 #endif
 
 #ifdef HAVE_KADM5
@@ -176,79 +178,6 @@ PHP_MINFO_FUNCTION(krb5)
 	php_info_print_table_row(2, "GSSAPI/SPNEGO auth support", "yes");
 	php_info_print_table_end();
 }
-
-
-/* compat functions */
-
-#ifndef HAVE_KRB5_CC_NEW_UNIQUE
-
-extern krb5_error_code KRB5_CALLCONV krb5_mcc_generate_new (krb5_context context, krb5_ccache *id);
-
-/* {{{ */
-krb5_error_code KRB5_CALLCONV krb5_cc_new_unique (krb5_context context, const char* type, const char* hint, krb5_ccache *id)
-{
-	krb5_error_code retval = 0;	
-	unsigned char random[16];
-	unsigned char *rand64 = NULL;
-	int rand64len = 0;
-
-	/* generate a hopefully unique identifier of 128 bit length */
-
-#ifdef HAVE_KRB5_RANDOM_MAKE_OCTETS
-	krb5_data data;
-	memset(&data, 0, sizeof(data));
-	data.length = 16;
-	data.data = (void*) &random;
-
-	if((retval = krb5_c_random_make_octets(context,&data))) {
-		return retval;
-	}
-	
-#else
-#ifndef HAVE_KRB5_RANDOM_CONFOUNDER
-#error "No function to generate unique identifer found"
-#endif
-	if((retval = krb5_random_confounder(16, (krb5_pointer) &random))) {
-		return retval;
-	}
-#endif
-
-	
-	rand64  = php_base64_encode((unsigned const char*) &random, 16, &rand64len);
-	
-	if(rand64 == NULL) {
-		return KRB5_CRYPTO_INTERNAL;
-	}
-
-	char *ccname = emalloc(strlen(type) + 2 + rand64len);
-
-	*ccname = 0;
-	strcat(ccname, type);
-	strcat(ccname, ":");
-	strncat(ccname, (const char*) rand64, rand64len);
-
-	efree(rand64);
-
-	retval = krb5_cc_resolve(context, ccname, id);
-	
-	efree(ccname);
-	return retval;
-}
-/* }}} */
-
-
-#endif
-
-#ifndef HAVE_KRB5_GET_ERROR_MESSAGE
-
-/* {{{ */
-const char* KRB5_CALLCONV krb5_get_error_message (krb5_context context, krb5_error_code code)
-{
-	return error_message(code);
-}
-/* }}} */
-#endif
-
 
 /*  Constructors/Destructors */
 /* {{{ */
@@ -475,7 +404,7 @@ static char *php_krb5_get_realm(krb5_context ctx, krb5_principal princ TSRMLS_DC
 static krb5_error_code php_krb5_get_tgt_expire(krb5_ccache_object *ccache, long *endtime, long *renew_until TSRMLS_DC)
 {
 	krb5_error_code retval = 0;
-	char *errstr = "";
+	char *errstr = NULL;
 	krb5_principal princ;
 	int have_princ = 0;
 	krb5_creds in_cred;
@@ -484,44 +413,51 @@ static krb5_error_code php_krb5_get_tgt_expire(krb5_ccache_object *ccache, long 
 	int have_credptr = 0;
 	char *realm;
 
-    do {
-	memset(&princ, 0, sizeof(princ));
-	if ((retval = krb5_cc_get_principal(ccache->ctx,ccache->cc, &princ))) {
-		errstr = "Failed to retrieve principal from source ccache (%s)";
-		break;
-	}
-	have_princ = 1;
+	do {
+		memset(&princ, 0, sizeof(princ));
+		if ((retval = krb5_cc_get_principal(ccache->ctx,ccache->cc, &princ))) {
+			errstr = "Failed to retrieve principal from source ccache (%s)";
+			break;
+		}
+		have_princ = 1;
 
-	if (!(realm = php_krb5_get_realm(ccache->ctx, princ TSRMLS_CC))) {
-		retval = KRB5KRB_ERR_GENERIC;
-		errstr = "Failed to extract realm from principal (%s)";
-		break;
-	}
+		if (!(realm = php_krb5_get_realm(ccache->ctx, princ TSRMLS_CC))) {
+			retval = KRB5KRB_ERR_GENERIC;
+			errstr = "Failed to extract realm from principal (%s)";
+			break;
+		}
 
-	memset(&in_cred, 0, sizeof(in_cred));
-	in_cred.client = princ;
+		memset(&in_cred, 0, sizeof(in_cred));
+		in_cred.client = princ;
 
-	if ((retval = krb5_build_principal(ccache->ctx, &in_cred.server, strlen(realm), realm, "krbtgt", realm, NULL))) {
-		errstr = "Failed to build krbtgt principal (%s)";
-		break;
-	}
-	have_in_cred = 1;
+		if ((retval = krb5_build_principal(ccache->ctx, &in_cred.server, strlen(realm), realm, "krbtgt", realm, NULL))) {
+			errstr = "Failed to build krbtgt principal (%s)";
+			break;
+		}
+		have_in_cred = 1;
 
-	if ((retval = krb5_get_credentials(ccache->ctx, KRB5_GC_CACHED, ccache->cc, &in_cred, &credptr))) {
-		errstr = "Failed to retrieve krbtgt ticket from cache (%s)";
-		break;
-	}
-	have_credptr = 1;
+		if ((retval = krb5_get_credentials(ccache->ctx, KRB5_GC_CACHED, ccache->cc, &in_cred, &credptr))) {
+			errstr = "Failed to retrieve krbtgt ticket from cache (%s)";
+			break;
+		}
+		have_credptr = 1;
 
-    } while (0);
+	} while (0);
 
 	if (have_princ) krb5_free_principal(ccache->ctx, princ);
 	if (have_in_cred) krb5_free_principal(ccache->ctx, in_cred.server);
 
-	*endtime = credptr->times.endtime;
-	*renew_until = credptr->times.renew_till;
 
-	if (have_credptr) krb5_free_cred_contents(ccache->ctx, credptr);
+
+	if (have_credptr) {
+		krb5_free_cred_contents(ccache->ctx, credptr);
+		*endtime = credptr->times.endtime;
+		*renew_until = credptr->times.renew_till;
+	}
+
+	if (errstr != NULL) {
+		php_krb5_display_error(ccache->ctx, retval, errstr TSRMLS_CC);
+	}
 
 	return retval;
 }
@@ -1059,7 +995,6 @@ PHP_METHOD(KRB5CCache, isValid)
 	}
 
 	if ((retval = php_krb5_get_tgt_expire(ccache,&endtime,&renew_until TSRMLS_CC))) {
-		php_krb5_display_error(ccache->ctx, retval, "Failed to get TGT times (%s)" TSRMLS_CC);
 		RETURN_FALSE;
 	}
 
@@ -1073,28 +1008,6 @@ PHP_METHOD(KRB5CCache, isValid)
 			RETURN_FALSE;
 		}
 
-	RETURN_TRUE;
-}
-/* }}} */
-
-/* {{{ proto bool KRB5CCache::setConfig( string $config )
-   Sets the kerberos configuration file to use (krb5.conf) */
-PHP_METHOD(KRB5CCache, setConfig)
-{
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
-	char *files[2] = { NULL , NULL };
-	size_t file_len = 0;
-	krb5_error_code retval = 0;
-
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &files[0], &file_len) == FAILURE) {
-		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
-		RETURN_FALSE;
-	}
-
-	if((retval = krb5_set_config_files(ccache->ctx, (const char**)&files))) {
-		php_krb5_display_error(ccache->ctx, retval,  "Failed to set configuration file (%s)" TSRMLS_CC);
-		RETURN_FALSE;
-	}
 	RETURN_TRUE;
 }
 /* }}} */

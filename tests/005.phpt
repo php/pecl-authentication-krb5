@@ -13,7 +13,7 @@ if($use_config) {
 	$client->setConfig(dirname(__FILE__) . '/krb5.ini');	
 }
 
-$client->initPassword($client_principal, $client_password, array('forwardable' => true));
+$client->initPassword($client_principal, $client_password, array('forwardable' => true , 'proxiable' => true));
 
 $server = new KRB5CCache();
 if($use_config) {
@@ -36,9 +36,7 @@ $ret_flags = '';
 $deleg = new KRB5CCache();
 
 var_dump($cgssapi->initSecContext($server_principal, null, GSS_C_DELEG_FLAG, null, $token));
-
 var_dump($sgssapi->acceptSecContext($token, $token2, $principal, $ret_flags, $time_rec, $deleg));
-
 var_dump(count($deleg->getEntries()));
 
 $dgssapi = new GSSAPIContext();
@@ -54,7 +52,6 @@ $principal2 = '';
 
 var_dump($dgssapi->initSecContext($server_principal, null, null, null, $token));
 var_dump($s2gssapi->acceptSecContext($token, $token2, $principal2, $ret_flags, $time_rec, $deleg));
-
 var_dump($principal2 === $principal);
 
 ?>

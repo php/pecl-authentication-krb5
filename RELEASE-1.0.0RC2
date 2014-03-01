@@ -1,0 +1,5 @@
+- [BUG] Fixed two memory corruption bugs (NegotiateAuth::doAuthentication, GSSAPIContext::inquireCredentials)
+- [BUG] Fix usage of krb5_random_confounder which is removed as of MIT krb5-1.8
+- [FEATURE] Added GSSAPIContext::registerAcceptorIdentity to register a keytab from which credentials are fetched
+- [BUILDBUG] Added /usr/include/et to include path to fix kadmin headers
+- [BUILDBUG] Also scan lib64/ directories for kerberos libraries

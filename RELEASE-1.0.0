@@ -1,0 +1,4 @@
+- [CLEANUP] Remove bundled kadmin headers, drop support for mit-krb5 <1.8
+- [FEATURE] Support use of the krb5-config tool to determine library paths
+- [CLEANUP] Remove KRB5CCache->setConfig method as this is no longer supported by libraries
+- [BUG] Fix null-deref in isValid for uninitialized KRB5CCache 

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package version="2.1" xmlns="http://pear.php.net/dtd/package-2.1" xmlns:tasks="http://pear.php.net/dtd/tasks-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pear.php.net/dtd/tasks-1.0     http://pear.php.net/dtd/tasks-1.0.xsd     http://pear.php.net/dtd/package-2.1     http://pear.php.net/dtd/package-2.1.xsd">
+ <name>krb5</name>
+ <channel>pecl.php.net</channel>
+ <summary>Features:
+</summary>
+ <description>
++ An interface for maintaining credential caches (KRB5CCache),
+   that can be used for authenticating against a kerberos5 realm
++ Bindings for nearly the complete GSSAPI (RFC2744)
++ The administrative interface (KADM5)
++ Support for HTTP Negotiate authentication via GSSAPI
+
+Documentation:
++ see docs/ for the API documentation
++ there are several pieces of example code in the examples/ directory
++ see below for install instructions
+</description>
+ <lead>
+  <name>Moritz Bechler</name>
+  <user>mbechler</user>
+  <email>mbechler@eenterphace.org</email>
+  <active>yes</active>
+ </lead>
+ <date>2014-03-01</date>
+ <time>17:28:19</time>
+ <version>
+  <release>1.0.0</release>
+  <api>0.1.0</api>
+ </version>
+ <stability>
+  <release>stable</release>
+  <api>stable</api>
+ </stability>
+ <license uri="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
+ <notes>- [CLEANUP] Remove bundled kadmin headers, drop support for mit-krb5 &lt;1.8
+- [FEATURE] Support use of the krb5-config tool to determine library paths
+- [CLEANUP] Remove KRB5CCache-&gt;setConfig method as this is no longer supported by libraries
+- [BUG] Fix null-deref in isValid for uninitialized KRB5CCache 
+</notes>
+ <contents>
+  <dir name="/">
+   <file role="doc" name="README" />
+   <file role="doc" name="INSTALL" />
+   <file role="doc" name="LICENSE" />
+   <file role="doc" name="CREDITS" />
+
+   <file role="src" name="config.m4" />
+   <file role="src" name="php_krb5.h" />
+   <file role="src" name="php_krb5_kadm.h" />
+   <file role="src" name="php_krb5_gssapi.h" />
+   <file role="src" name="krb5.c" />
+   <file role="src" name="gssapi.c" />
+   <file role="src" name="kadm.c" />
+   <file role="src" name="kadm5_policy.c" />
+   <file role="src" name="kadm5_principal.c" />
+   <file role="src" name="negotiate_auth.c" />
+
+   <dir name="examples">
+    <dir name="kadm">
+     <file role="doc" name="ex1.php"/>
+     <file role="doc" name="ex2.php"/>
+     <file role="doc" name="ex3.php"/>
+     <file role="doc" name="ex4.php"/>
+     <file role="doc" name="ex5.php"/>
+     <file role="doc" name="ex6.php"/>
+    </dir>
+    <file role="doc" name="spnego.php"/>
+   </dir>
+   <dir name="tests">
+    <file role="test" name="001.phpt"/>
+    <file role="test" name="002.phpt"/>
+    <file role="test" name="003.phpt"/>
+    <file role="test" name="004.phpt"/>
+    <file role="test" name="005.phpt"/>
+    <file role="test" name="config.php.dist"/>
+   </dir>
+  </dir>
+ </contents>
+ <dependencies>
+  <required>
+   <php>
+    <min>5.2.0</min>
+   </php>
+   <pearinstaller>
+    <min>1.4.8</min>
+   </pearinstaller>
+  </required>
+ </dependencies>
+ <providesextension>krb5</providesextension>
+ <extsrcrelease/>
+</package>

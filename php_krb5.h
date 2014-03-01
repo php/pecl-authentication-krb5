@@ -44,7 +44,7 @@
 #include <gssapi/gssapi_krb5.h>
 
 #define PHP_KRB5_EXT_NAME "krb5"
-#define PHP_KRB5_VERSION "1.0rc3"
+#define PHP_KRB5_VERSION "1.0.0"
 
 
 extern zend_module_entry krb5_module_entry;

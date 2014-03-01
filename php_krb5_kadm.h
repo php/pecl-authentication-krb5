@@ -27,9 +27,10 @@
 
 #ifdef SUCCESS
 #define OLD_SUCC SUCCESS
-#undef SUCCESS
 #endif
+#define SUCCESS KRB5_SUCCESS
 #include <kadm5/admin.h>
+#undef SUCCESS
 #ifdef OLD_SUCC
 #define SUCCESS OLD_SUCC
 #endif

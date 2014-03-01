@@ -1,7 +1,3 @@
-Version 1.0.0rc4:
-- [BUILDBUG] Other library layouts are now supported
-
-Version 1.0.0rc3:
 - [BUG] Fixed usage of kadm functions when bulding against officialy exported (post 1.7) MIT kadm libraries
 - [BUG] Bug fixes by Marc Seecof
 	* Fixed a possible use-before-set problem in php_krb5_ticket_object_new()
@@ -17,14 +13,3 @@ Version 1.0.0rc3:
 	* The KRB5CCache::isValid() method now tests only the primary TGT in the cache. 
 	* A new method KRB5CCache::getLifetime() returns an array containing values of 'endtime' and 'renew_until' for the primary TGT in the cache.
 	* A new method KRB5CCache::renew() renews the primary TGT in the cache (if possible), then discards all other cached tickets.
-
-Version 1.0.0rc2:
-- [BUG] Fixed two memory corruption bugs (NegotiateAuth::doAuthentication, GSSAPIContext::inquireCredentials)
-- [BUG] Fix usage of krb5_random_confounder which is removed as of MIT krb5-1.8
-- [FEATURE] Added GSSAPIContext::registerAcceptorIdentity to register a keytab from which credentials are fetched
-- [BUILDBUG] Added /usr/include/et to include path to fix kadmin headers
-- [BUILDBUG] Also scan lib64/ directories for kerberos libraries
-
-Still open:
-- Apache does not provide the authentication header via the default mechanism, but it would be possible to obtain it (circumvent this issue by using a rewrite rule which passes the Authorization header).
-- anything I have possibly missed....
