@@ -154,7 +154,11 @@ PHP_METHOD(KADM5, __construct)
  		retval = kadm5_init_with_password(obj->ctx, sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
  	} else {
- 
+
+		if (strlen(spass) != spass_len) {
+			zend_throw_exception(NULL, "Invalid keytab path", 0 TSRMLS_CC);
+			return;
+		}
 #if PHP_VERSION_ID < 50399
   		if((PG(safe_mode) && !php_checkuid(sprinc, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
   			php_check_open_basedir(sprinc TSRMLS_CC)) {

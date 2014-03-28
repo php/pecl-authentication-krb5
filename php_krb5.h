@@ -116,4 +116,10 @@ int php_krb5_kadm5_register_classes(TSRMLS_D);
 	}
 #endif
 
+#if defined(PHP_VERSION_ID) && PHP_VERSION_ID >= 50400
+#define ARG_PATH "p"
+#else
+#define ARG_PATH "s"
 #endif
+
+#endif /* PHP_KRB5_H */

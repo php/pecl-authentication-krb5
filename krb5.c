@@ -573,7 +573,7 @@ PHP_METHOD(KRB5CCache, open)
 	size_t sccname_len = 0;
 	krb5_error_code retval = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &sccname, &sccname_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &sccname, &sccname_len) == FAILURE) {
 		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
 		RETURN_FALSE;
 	}
@@ -605,7 +605,7 @@ PHP_METHOD(KRB5CCache, save)
 	size_t sccname_len = 0;
 	krb5_error_code retval = 0;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &sccname, &sccname_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &sccname, &sccname_len) == FAILURE) {
 		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
 		RETURN_FALSE;
 	}
@@ -758,7 +758,7 @@ PHP_METHOD(KRB5CCache, initKeytab)
 	cred_opts = &cred_opts_struct;
 #endif
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|a", &sprinc, &sprinc_len, &skeytab, &skeytab_len, &opts) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s" ARG_PATH "|a", &sprinc, &sprinc_len, &skeytab, &skeytab_len, &opts) == FAILURE) {
 		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
 		RETURN_FALSE;
 	}

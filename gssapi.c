@@ -240,7 +240,7 @@ PHP_METHOD(GSSAPIContext, registerAcceptorIdentity)
 	char *keytab;
 	int keytab_len;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &keytab, &keytab_len) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &keytab, &keytab_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
