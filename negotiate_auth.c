@@ -42,17 +42,28 @@ typedef struct _krb5_negotiate_auth_object {
 static void php_krb5_negotiate_auth_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC);
 zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC);
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth_none, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth__construct, 0, 0, 1)
+	ZEND_ARG_INFO(0, keytab)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth_getDelegatedCredentials, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, ccache, KRB5CCache, 0)
+ZEND_END_ARG_INFO()
+
 PHP_METHOD(KRB5NegotiateAuth, __construct);
 PHP_METHOD(KRB5NegotiateAuth, doAuthentication);
 PHP_METHOD(KRB5NegotiateAuth, getDelegatedCredentials);
 PHP_METHOD(KRB5NegotiateAuth, getAuthenticatedUser);
 
 static zend_function_entry krb5_negotiate_auth_functions[] = {
-		PHP_ME(KRB5NegotiateAuth, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
-		PHP_ME(KRB5NegotiateAuth, doAuthentication, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5NegotiateAuth, getDelegatedCredentials, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5NegotiateAuth, getAuthenticatedUser, NULL, ZEND_ACC_PUBLIC)
-		{NULL, NULL, NULL}
+	PHP_ME(KRB5NegotiateAuth, __construct,             arginfo_KRB5NegotiateAuth__construct,              ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(KRB5NegotiateAuth, doAuthentication,        arginfo_KRB5NegotiateAuth_none,                    ZEND_ACC_PUBLIC)
+	PHP_ME(KRB5NegotiateAuth, getDelegatedCredentials, arginfo_KRB5NegotiateAuth_getDelegatedCredentials, ZEND_ACC_PUBLIC)
+	PHP_ME(KRB5NegotiateAuth, getAuthenticatedUser,    arginfo_KRB5NegotiateAuth_none,                    ZEND_ACC_PUBLIC)
+	PHP_FE_END
 };
 
 
@@ -173,6 +184,10 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 	gss_buffer_t input_token = GSS_C_NO_BUFFER;
 	gss_buffer_desc output_token;
 	gss_cred_id_t server_creds = GSS_C_NO_CREDENTIAL;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		RETURN_FALSE;
+	}
 
 	object = (krb5_negotiate_auth_object*) zend_object_store_get_object(getThis() TSRMLS_CC);
 
@@ -335,6 +350,10 @@ PHP_METHOD(KRB5NegotiateAuth, getAuthenticatedUser)
 {
 	OM_uint32 status, minor_status;
 	krb5_negotiate_auth_object *object;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		RETURN_FALSE;
+	}
 	object = (krb5_negotiate_auth_object*) zend_object_store_get_object(getThis() TSRMLS_CC);
 
 	if(!object || !object->authed_user || object->authed_user == GSS_C_NO_NAME) {
