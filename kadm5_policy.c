@@ -151,7 +151,10 @@ PHP_METHOD(KADM5Policy, load)
 	krb5_kadm5_object *kadm5;
 	zval *connobj = NULL;
 
-	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection", 
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection",
 									sizeof("connection"),1 TSRMLS_CC);
 
 	kadm5 = (krb5_kadm5_object*)zend_object_store_get_object(connobj TSRMLS_CC);
@@ -182,7 +185,10 @@ PHP_METHOD(KADM5Policy, save)
 	krb5_kadm5_object *kadm5;
 	zval *connobj = NULL;
 
-	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection", 
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection",
 									sizeof("connection"),1 TSRMLS_CC);
 
 	kadm5 = (krb5_kadm5_object*)zend_object_store_get_object(connobj TSRMLS_CC);
@@ -208,7 +214,10 @@ PHP_METHOD(KADM5Policy, delete)
 	krb5_kadm5_object *kadm5;
 	zval *connobj = NULL;
 
-	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection", 
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection",
 									sizeof("connection"),1 TSRMLS_CC);
 
 	kadm5 = (krb5_kadm5_object*)zend_object_store_get_object(connobj TSRMLS_CC);
@@ -232,6 +241,9 @@ PHP_METHOD(KADM5Policy, getPropertyArray)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	array_init(return_value);
 	add_assoc_string(return_value, "policy", obj->data.policy, 1);
 	add_assoc_long(return_value, "pw_min_life", obj->data.pw_min_life);
@@ -248,6 +260,10 @@ PHP_METHOD(KADM5Policy, getPropertyArray)
 PHP_METHOD(KADM5Policy, getName)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_STRING(obj->policy, 1);
 }
 /* }}} */
@@ -257,6 +273,10 @@ PHP_METHOD(KADM5Policy, getName)
 PHP_METHOD(KADM5Policy, getMinPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_LONG(obj->data.pw_min_life);
 }
 /* }}} */
@@ -283,6 +303,10 @@ PHP_METHOD(KADM5Policy, setMinPasswordLife)
 PHP_METHOD(KADM5Policy, getMaxPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_LONG(obj->data.pw_max_life);
 }
 /* }}} */
@@ -310,6 +334,10 @@ PHP_METHOD(KADM5Policy, setMaxPasswordLife)
 PHP_METHOD(KADM5Policy, getMinPasswordLength)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_LONG(obj->data.pw_min_length);
 }
 /* }}} */
@@ -336,6 +364,10 @@ PHP_METHOD(KADM5Policy, setMinPasswordLength)
 PHP_METHOD(KADM5Policy, getMinPasswordClasses)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_LONG(obj->data.pw_min_classes);
 }
 /* }}} */
@@ -362,6 +394,10 @@ PHP_METHOD(KADM5Policy, setMinPasswordClasses)
 PHP_METHOD(KADM5Policy, getHistoryNum)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_LONG(obj->data.pw_history_num);
 }
 /* }}} */
@@ -388,6 +424,10 @@ PHP_METHOD(KADM5Policy, setHistoryNum)
 PHP_METHOD(KADM5Policy, getReferenceCount)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
 	RETURN_LONG(obj->data.policy_refcnt);
 }
 /* }}} */
