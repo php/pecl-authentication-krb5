@@ -97,6 +97,7 @@ PHP_METHOD(GSSAPIContext, getMic);
 PHP_METHOD(GSSAPIContext, verifyMic);
 PHP_METHOD(GSSAPIContext, wrap);
 PHP_METHOD(GSSAPIContext, unwrap);
+PHP_METHOD(GSSAPIContext, getTimeRemaining);
 
 static zend_function_entry krb5_gssapi_context_functions[] = {
 	PHP_ME(GSSAPIContext, registerAcceptorIdentity, krb5_GSSAPIContext_registerAcceptorIdentity, ZEND_ACC_PUBLIC)
@@ -108,6 +109,7 @@ static zend_function_entry krb5_gssapi_context_functions[] = {
 	PHP_ME(GSSAPIContext, verifyMic,                krb5_GSSAPIContext_verifyMicArgs,            ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, wrap,                     krb5_GSSAPIContext_wrapArgs,                 ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, unwrap,                   krb5_GSSAPIContext_unwrapArgs,               ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, getTimeRemaining,         krb5_GSSAPIContext_none,                     ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
