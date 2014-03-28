@@ -34,39 +34,57 @@ typedef struct _krb5_gssapi_context_object {
 		gss_ctx_id_t context;
 } krb5_gssapi_context_object;
 
-ZEND_BEGIN_ARG_INFO(krb5_GSSAPIContext_initSecContextArgs, 0)
-ZEND_ARG_INFO(0,target)
-ZEND_ARG_INFO(0,input_token)
-ZEND_ARG_INFO(0,reqflags)
-ZEND_ARG_INFO(0,timereq)
-ZEND_ARG_INFO(1,output_token)
-ZEND_ARG_INFO(1,ret_flags)
-ZEND_ARG_INFO(1,time_rec)
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_registerAcceptorIdentity, 0, 0, 1)
+	ZEND_ARG_INFO(0, keytab)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(krb5_GSSAPIContext_acceptSecContextArgs, 0)
-ZEND_ARG_INFO(0,input_token)
-ZEND_ARG_INFO(1,output_token)
-ZEND_ARG_INFO(1,src_name)
-ZEND_ARG_INFO(1,ret_flags)
-ZEND_ARG_INFO(1,time_rec)
-ZEND_ARG_INFO(1,deleg)
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_acquireCredentials, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, ccache, KRB5CCache, 0)
+	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, type)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(krb5_GSSAPIContext_verifyMicArgs, 0)
-ZEND_ARG_INFO(0,message)
-ZEND_ARG_INFO(0,mic)
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_none, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_initSecContextArgs, 0, 0, 1)
+	ZEND_ARG_INFO(0, target)
+	ZEND_ARG_INFO(0, input_token)
+	ZEND_ARG_INFO(0, reqflags)
+	ZEND_ARG_INFO(0, timereq)
+	ZEND_ARG_INFO(1, output_token)
+	ZEND_ARG_INFO(1, ret_flags)
+	ZEND_ARG_INFO(1, time_rec)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_acceptSecContextArgs, 0, 0, 1)
+	ZEND_ARG_INFO(0, input_token)
+	ZEND_ARG_INFO(1, output_token)
+	ZEND_ARG_INFO(1, src_name)
+	ZEND_ARG_INFO(1, ret_flags)
+	ZEND_ARG_INFO(1, time_rec)
+	ZEND_ARG_OBJ_INFO(0, deleg, KRB5CCache, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_getMic, 0, 0, 1)
+	ZEND_ARG_INFO(0, message)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_verifyMicArgs, 0, 0, 2)
+	ZEND_ARG_INFO(0, message)
+	ZEND_ARG_INFO(0, mic)
 ZEND_END_ARG_INFO()
 
 
-ZEND_BEGIN_ARG_INFO(krb5_GSSAPIContext_wrapArgs, 0)
-ZEND_ARG_INFO(0,input)
-ZEND_ARG_INFO(1,output)
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_wrapArgs, 0, 0, 2)
+	ZEND_ARG_INFO(0, input)
+	ZEND_ARG_INFO(1, output)
+	ZEND_ARG_INFO(0, encrypt)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO(krb5_GSSAPIContext_unwrapArgs, 0)
-ZEND_ARG_INFO(0,input)
-ZEND_ARG_INFO(1,output)
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_unwrapArgs, 0, 0, 2)
+	ZEND_ARG_INFO(0, input)
+	ZEND_ARG_INFO(1, output)
 ZEND_END_ARG_INFO()
 
 
@@ -81,16 +99,16 @@ PHP_METHOD(GSSAPIContext, wrap);
 PHP_METHOD(GSSAPIContext, unwrap);
 
 static zend_function_entry krb5_gssapi_context_functions[] = {
-	PHP_ME(GSSAPIContext, registerAcceptorIdentity, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, acquireCredentials, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, inquireCredentials, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, initSecContext, krb5_GSSAPIContext_initSecContextArgs, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, acceptSecContext, krb5_GSSAPIContext_acceptSecContextArgs, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, getMic, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, verifyMic, krb5_GSSAPIContext_verifyMicArgs, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, wrap, krb5_GSSAPIContext_wrapArgs, ZEND_ACC_PUBLIC)
-	PHP_ME(GSSAPIContext, unwrap, krb5_GSSAPIContext_unwrapArgs, ZEND_ACC_PUBLIC)
-	{NULL, NULL, NULL}
+	PHP_ME(GSSAPIContext, registerAcceptorIdentity, krb5_GSSAPIContext_registerAcceptorIdentity, ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, acquireCredentials,       krb5_GSSAPIContext_acquireCredentials,       ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, inquireCredentials,       krb5_GSSAPIContext_none,                     ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, initSecContext,           krb5_GSSAPIContext_initSecContextArgs,       ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, acceptSecContext,         krb5_GSSAPIContext_acceptSecContextArgs,     ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, getMic,                   krb5_GSSAPIContext_getMic,                   ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, verifyMic,                krb5_GSSAPIContext_verifyMicArgs,            ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, wrap,                     krb5_GSSAPIContext_wrapArgs,                 ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, unwrap,                   krb5_GSSAPIContext_unwrapArgs,               ZEND_ACC_PUBLIC)
+	PHP_FE_END
 };
 
 zend_object_handlers krb5_gssapi_context_handlers;
@@ -235,6 +253,8 @@ int php_krb5_gssapi_shutdown(TSRMLS_D)
 
 /* GSSAPI Methods */
 
+/* {{{ proto void GSSAPIContext::registerAcceptorIdentity(string $keytab)
+ */
 PHP_METHOD(GSSAPIContext, registerAcceptorIdentity)
 {
 	char *keytab;
@@ -371,6 +391,9 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 	gss_cred_usage_t cred_usage = GSS_C_BOTH;
 	gss_OID_set mechs = GSS_C_NO_OID_SET;
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		RETURN_FALSE;
+	}
 	array_init(return_value);
 
 	status = gss_inquire_cred (
@@ -663,6 +686,9 @@ PHP_METHOD(GSSAPIContext, getTimeRemaining)
 	OM_uint32 time_rec = 0;
 	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		RETURN_FALSE;
+	}
 	if(context->context == GSS_C_NO_CONTEXT) {
 		RETURN_LONG(0);
 	}
