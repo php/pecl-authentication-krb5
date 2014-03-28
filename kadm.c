@@ -27,16 +27,48 @@
 
 zend_object_handlers krb5_kadm5_handlers;
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5__construct, 0, 0, 2)
+	ZEND_ARG_INFO(0, principal)
+	ZEND_ARG_INFO(0, credentials)
+	ZEND_ARG_INFO(0, use_keytab)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPrincipal, 0, 0, 1)
+	ZEND_ARG_INFO(0, principal)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPrincipals, 0, 0, 0)
+	ZEND_ARG_INFO(0, filter)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_createPrincipal, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, principal, KADM5Principal, 0)
+	ZEND_ARG_INFO(0, password)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPolicy, 0, 0, 1)
+	ZEND_ARG_INFO(0, policy)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_createPolicy, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, policy, KADM5Policy, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPolicies, 0, 0, 0)
+	ZEND_ARG_INFO(0, filter)
+ZEND_END_ARG_INFO()
+
+
 
 static zend_function_entry krb5_kadm5_functions[] = {
-	PHP_ME(KADM5, __construct, NULL, ZEND_ACC_CTOR | ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5, getPrincipal, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5, getPrincipals, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5, createPrincipal, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5, getPolicy, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5, createPolicy, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5, getPolicies, NULL, ZEND_ACC_PUBLIC)
-	{NULL, NULL, NULL}		
+	PHP_ME(KADM5, __construct,     arginfo_KADM5__construct,      ZEND_ACC_CTOR | ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5, getPrincipal,    arginfo_KADM5_getPrincipal,    ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5, getPrincipals,   arginfo_KADM5_getPrincipals,   ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5, createPrincipal, arginfo_KADM5_createPrincipal, ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5, getPolicy,       arginfo_KADM5_getPolicy,       ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5, createPolicy,    arginfo_KADM5_createPolicy,    ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5, getPolicies,     arginfo_KADM5_getPolicies,     ZEND_ACC_PUBLIC)
+	PHP_FE_END
 };
 
 /* KADM5 ctor/dtor */
@@ -115,7 +147,7 @@ int php_krb5_kadm5_register_classes(TSRMLS_D) {
 }
 /* }}} */
 
-/* {{{ proto KADM5::__construct(string $principal, string $credentials, bool $use_keytab)
+/* {{{ proto KADM5::__construct(string $principal, string $credentials [, bool $use_keytab=0])
 	Initialize a connection with the KADM server using the given credentials */
 PHP_METHOD(KADM5, __construct)
 {
@@ -214,7 +246,7 @@ PHP_METHOD(KADM5, getPrincipal)
 	zval_ptr_dtor(&dummy_retval);
 } /* }}} */
 
-/* {{{ proto array KADM5::getPrinicipal([string $filter])
+/* {{{ proto array KADM5::getPrinicipals([string $filter])
 	Fetch an array of all principals matching $filter */
 PHP_METHOD(KADM5, getPrincipals)
 {
