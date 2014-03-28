@@ -23,26 +23,53 @@
 #include "php_krb5.h"
 #include "php_krb5_kadm.h"
 
-static zend_function_entry krb5_kadm5_policy_functions[] = {
-	PHP_ME(KADM5Policy, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
-	PHP_ME(KADM5Policy, load, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, save, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, delete, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getPropertyArray, NULL, ZEND_ACC_PUBLIC)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_none, 0, 0, 0)
+ZEND_END_ARG_INFO()
 
-	PHP_ME(KADM5Policy, getName, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getMinPasswordLife, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, setMinPasswordLife, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getMaxPasswordLife, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, setMaxPasswordLife, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getMinPasswordLength, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, setMinPasswordLength, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getMinPasswordClasses, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, setMinPasswordClasses, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getHistoryNum, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, setHistoryNum, NULL, ZEND_ACC_PUBLIC)
-	PHP_ME(KADM5Policy, getReferenceCount, NULL, ZEND_ACC_PUBLIC)
-	{ NULL, NULL, NULL }
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy__construct, 0, 0, 1)
+	ZEND_ARG_INFO(0, policy)
+	ZEND_ARG_OBJ_INFO(0, conn, KADM5, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setMinPasswordLife, 0, 0, 1)
+	ZEND_ARG_INFO(0, min_life)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setMaxPasswordLife, 0, 0, 1)
+	ZEND_ARG_INFO(0, max_life)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setMinPasswordLength, 0, 0, 1)
+	ZEND_ARG_INFO(0, min_length)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setMinPasswordClasses, 0, 0, 1)
+	ZEND_ARG_INFO(0, min_classes)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setHistoryNum, 0, 0, 1)
+	ZEND_ARG_INFO(0, history_num)
+ZEND_END_ARG_INFO()
+
+static zend_function_entry krb5_kadm5_policy_functions[] = {
+	PHP_ME(KADM5Policy, __construct,           arginfo_KADM5Policy__construct,            ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(KADM5Policy, load,                  arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, save,                  arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, delete,                arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getPropertyArray,      arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getName,               arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getMinPasswordLife,    arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setMinPasswordLife,    arginfo_KADM5Policy_setMinPasswordLife,    ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getMaxPasswordLife,    arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setMaxPasswordLife,    arginfo_KADM5Policy_setMaxPasswordLife,    ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getMinPasswordLength,  arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setMinPasswordLength,  arginfo_KADM5Policy_setMinPasswordLength,  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getMinPasswordClasses, arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setMinPasswordClasses, arginfo_KADM5Policy_setMinPasswordClasses, ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getHistoryNum,         arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setHistoryNum,         arginfo_KADM5Policy_setHistoryNum,         ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getReferenceCount,     arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_FE_END
 };
 
 zend_object_handlers krb5_kadm5_policy_handlers;
