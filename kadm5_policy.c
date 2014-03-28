@@ -102,6 +102,8 @@ zend_object_value php_krb5_kadm5_policy_object_new(zend_class_entry *ce TSRMLS_D
 	return retval;
 }
 
+/* {{{ proto KADM5Policy::__construct(string $policy [, KADM5 $conn ])
+ */
 PHP_METHOD(KADM5Policy, __construct)
 {
 	char *spolicy = NULL;
@@ -138,7 +140,10 @@ PHP_METHOD(KADM5Policy, __construct)
 		zval_ptr_dtor(&dummy_retval);
 	}
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::load()
+ */
 PHP_METHOD(KADM5Policy, load)
 {
 	kadm5_ret_t retval;
@@ -166,7 +171,10 @@ PHP_METHOD(KADM5Policy, load)
 		kadm5->refcount++;
 	}
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::save()
+ */
 PHP_METHOD(KADM5Policy, save)
 {
 	kadm5_ret_t retval;
@@ -189,7 +197,10 @@ PHP_METHOD(KADM5Policy, save)
 		return;
 	}
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::delete()
+ */
 PHP_METHOD(KADM5Policy, delete)
 {
 	kadm5_ret_t retval;
@@ -212,8 +223,11 @@ PHP_METHOD(KADM5Policy, delete)
 		return;
 	}
 }
+/* }}} */
 
 
+/* {{{ proto KADM5Policy::getPropertyArray()
+ */
 PHP_METHOD(KADM5Policy, getPropertyArray)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -227,19 +241,28 @@ PHP_METHOD(KADM5Policy, getPropertyArray)
 	add_assoc_long(return_value, "pw_history_num", obj->data.pw_history_num);
 	add_assoc_long(return_value, "policy_refcnt", obj->data.policy_refcnt);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::getName()
+ */
 PHP_METHOD(KADM5Policy, getName)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_STRING(obj->policy, 1);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::getMinPasswordLife()
+ */
 PHP_METHOD(KADM5Policy, getMinPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_LONG(obj->data.pw_min_life);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::setMinPasswordLife(int $min_life)
+ */
 PHP_METHOD(KADM5Policy, setMinPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -253,13 +276,19 @@ PHP_METHOD(KADM5Policy, setMinPasswordLife)
 	obj->update_mask |= KADM5_PW_MIN_LIFE;
 	RETURN_TRUE;
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::getMaxPasswordLife()
+ */
 PHP_METHOD(KADM5Policy, getMaxPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_LONG(obj->data.pw_max_life);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::setMaxPasswordLife(int $max_life)
+ */
 PHP_METHOD(KADM5Policy, setMaxPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -273,14 +302,20 @@ PHP_METHOD(KADM5Policy, setMaxPasswordLife)
 	obj->update_mask |= KADM5_PW_MAX_LIFE;
 	RETURN_TRUE;
 }
+/* }}} */
 
 
+/* {{{ proto KADM5Policy::getMinPasswordLength()
+ */
 PHP_METHOD(KADM5Policy, getMinPasswordLength)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_LONG(obj->data.pw_min_length);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::setMinPasswordLength(int $min_length)
+ */
 PHP_METHOD(KADM5Policy, setMinPasswordLength)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -294,13 +329,19 @@ PHP_METHOD(KADM5Policy, setMinPasswordLength)
 	obj->update_mask |= KADM5_PW_MIN_LENGTH;
 	RETURN_TRUE;
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::getMinPasswordClasses()
+ */
 PHP_METHOD(KADM5Policy, getMinPasswordClasses)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_LONG(obj->data.pw_min_classes);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::setMinPasswordClasses(int $min_classes)
+ */
 PHP_METHOD(KADM5Policy, setMinPasswordClasses)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -314,13 +355,19 @@ PHP_METHOD(KADM5Policy, setMinPasswordClasses)
 	obj->update_mask |= KADM5_PW_MIN_CLASSES;
 	RETURN_TRUE;
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::getHistoryNum()
+ */
 PHP_METHOD(KADM5Policy, getHistoryNum)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_LONG(obj->data.pw_history_num);
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::setHistoryNum(int $history_num)
+ */
 PHP_METHOD(KADM5Policy, setHistoryNum)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
@@ -334,9 +381,13 @@ PHP_METHOD(KADM5Policy, setHistoryNum)
 	obj->update_mask |= KADM5_PW_HISTORY_NUM;
 	RETURN_TRUE;
 }
+/* }}} */
 
+/* {{{ proto KADM5Policy::getReferenceCount()
+ */
 PHP_METHOD(KADM5Policy, getReferenceCount)
 {
 	krb5_kadm5_policy_object *obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	RETURN_LONG(obj->data.policy_refcnt);
 }
+/* }}} */
