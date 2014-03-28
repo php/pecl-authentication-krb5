@@ -42,6 +42,37 @@
 
 /* Class definition */
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_none, 0, 0, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_initPassword, 0, 0, 2)
+	ZEND_ARG_INFO(0, principal)
+	ZEND_ARG_INFO(0, pass)
+	ZEND_ARG_INFO(0, options)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_initKeytab, 0, 0, 2)
+	ZEND_ARG_INFO(0, principal)
+	ZEND_ARG_INFO(0, keytab)
+	ZEND_ARG_INFO(0, options)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_open, 0, 0, 1)
+	ZEND_ARG_INFO(0, src)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_save, 0, 0, 1)
+	ZEND_ARG_INFO(0, dest)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_isValid, 0, 0, 0)
+	ZEND_ARG_INFO(0, timeRemain)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_getTktAttrs, 0, 0, 0)
+	ZEND_ARG_INFO(0, prefix)
+ZEND_END_ARG_INFO()
+
 PHP_METHOD(KRB5CCache, initPassword);
 PHP_METHOD(KRB5CCache, initKeytab);
 PHP_METHOD(KRB5CCache, getName);
@@ -56,19 +87,19 @@ PHP_METHOD(KRB5CCache, getTktAttrs);
 PHP_METHOD(KRB5CCache, renew);
 
 static zend_function_entry krb5_ccache_functions[] = {
-		PHP_ME(KRB5CCache, initPassword, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, initKeytab, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, getName, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, getPrincipal, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, getRealm, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, getLifetime, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, getEntries, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, open, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, save, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, isValid, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, getTktAttrs, NULL, ZEND_ACC_PUBLIC)
-		PHP_ME(KRB5CCache, renew, NULL, ZEND_ACC_PUBLIC)
-		{NULL, NULL, NULL}
+		PHP_ME(KRB5CCache, initPassword, arginfo_KRB5CCache_initPassword, ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, initKeytab,   arginfo_KRB5CCache_initKeytab,   ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getName,      arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getPrincipal, arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getRealm,     arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getLifetime,  arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getEntries,   arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, open,         arginfo_KRB5CCache_open,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, save,         arginfo_KRB5CCache_save,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, isValid,      arginfo_KRB5CCache_isValid,      ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getTktAttrs,  arginfo_KRB5CCache_getTktAttrs,  ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, renew,        arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_FE_END
 };
 
 
@@ -553,6 +584,11 @@ PHP_METHOD(KRB5CCache, getName)
 	const char *tmptype = krb5_cc_get_type(ccache->ctx, ccache->cc);
 	char *name = NULL;
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
 	name = emalloc(strlen(tmpname) + strlen(tmptype) + 2);
 	*name = 0;
 	strcat(name, tmptype);
@@ -861,6 +897,11 @@ PHP_METHOD(KRB5CCache, getPrincipal)
 	krb5_principal princ;
 	char *princname = NULL;
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
 	memset(&princ, 0, sizeof(princ));
 	if ((retval = krb5_cc_get_principal(ccache->ctx, ccache->cc, &princ))) {
 		php_krb5_display_error(ccache->ctx, retval, "Failed to retrieve principal from source ccache (%s)" TSRMLS_CC);
@@ -889,6 +930,11 @@ PHP_METHOD(KRB5CCache, getRealm)
 	krb5_principal princ;
 	char *realm;
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
 	memset(&princ, 0, sizeof(princ));
 	if ((retval = krb5_cc_get_principal(ccache->ctx,ccache->cc,&princ))) {
 		php_krb5_display_error(ccache->ctx, retval, "Failed to retrieve principal from source ccache (%s)" TSRMLS_CC);
@@ -915,6 +961,11 @@ PHP_METHOD(KRB5CCache, getLifetime)
 	krb5_error_code retval = 0;
 	long endtime, renew_until;
 
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
 	array_init(return_value);
 
 	if ((retval = php_krb5_get_tgt_expire(ccache,&endtime,&renew_until TSRMLS_CC))) {
@@ -939,6 +990,11 @@ PHP_METHOD(KRB5CCache, getEntries)
 	krb5_creds creds;
 	int have_creds = 0;
 	char *princname;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
 
 	array_init(return_value);
 
@@ -1216,6 +1272,11 @@ PHP_METHOD(KRB5CCache, renew)
 	int have_princ = 0;
 	krb5_creds creds;
 	int have_creds = 0;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
 
     do {
 	if ((retval = php_krb5_get_tgt_expire(ccache, &endtime, &renew_until TSRMLS_CC))) {

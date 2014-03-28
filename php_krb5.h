@@ -122,4 +122,14 @@ int php_krb5_kadm5_register_classes(TSRMLS_D);
 #define ARG_PATH "s"
 #endif
 
+/* For PHP < 5.3 */
+#ifndef zend_parse_parameters_none
+#define zend_parse_parameters_none() zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "")
+#endif
+
+/* For PHP < 5.3 */
+#ifndef PHP_FE_END
+#define PHP_FE_END {NULL, NULL, NULL}
+#endif
+
 #endif /* PHP_KRB5_H */
