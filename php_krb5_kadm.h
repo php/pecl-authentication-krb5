@@ -103,6 +103,8 @@
 	PHP_METHOD(KADM5Principal, getLastFailed);
 	PHP_METHOD(KADM5Principal, getFailedAuthCount);
 	PHP_METHOD(KADM5Principal, resetFailedAuthCount);
+	PHP_METHOD(KADM5Principal, getMaxRenewableLifetime);
+	PHP_METHOD(KADM5Principal, setMaxRenewableLifetime);
 
 
 
