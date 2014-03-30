@@ -192,12 +192,12 @@ PHP_METHOD(KADM5, __construct)
 			return;
 		}
 #if PHP_VERSION_ID < 50399
-  		if((PG(safe_mode) && !php_checkuid(sprinc, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
-  			php_check_open_basedir(sprinc TSRMLS_CC)) {
+  		if((PG(safe_mode) && !php_checkuid(spass, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
+  			php_check_open_basedir(spass TSRMLS_CC)) {
   			RETURN_FALSE;
   		}
 #else
-  		if( php_check_open_basedir(sprinc TSRMLS_CC)) {
+  		if( php_check_open_basedir(spass TSRMLS_CC)) {
   			RETURN_FALSE;
   		}
 #endif
