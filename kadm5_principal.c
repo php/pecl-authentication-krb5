@@ -154,9 +154,11 @@ PHP_METHOD(KADM5Principal, __construct)
 	zval *obj = NULL;
 	zval *dummy_retval, *func;
 
+	KRB5_SET_ERROR_HANDLING(EH_THROW);
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|O", &sprinc, &sprinc_len, &obj, krb5_ce_kadm5) == FAILURE) {
 		RETURN_NULL();
 	}
+	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 	zend_update_property_string(krb5_ce_kadm5_principal, getThis(), "princname", sizeof("princname"), sprinc TSRMLS_CC);
 

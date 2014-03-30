@@ -122,6 +122,13 @@ int php_krb5_kadm5_register_classes(TSRMLS_D);
 #define ARG_PATH "s"
 #endif
 
+#if defined(PHP_VERSION_ID) && PHP_VERSION_ID >= 50300
+/* php_set_error_handling() is deprecated */
+#define KRB5_SET_ERROR_HANDLING(type)  zend_replace_error_handling(type, NULL, NULL TSRMLS_CC)
+#else
+#define KRB5_SET_ERROR_HANDLING(type)  php_set_error_handling(type, NULL  TSRMLS_CC)
+#endif
+
 /* For PHP < 5.3 */
 #ifndef zend_parse_parameters_none
 #define zend_parse_parameters_none() zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "")

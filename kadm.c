@@ -163,12 +163,13 @@ PHP_METHOD(KADM5, __construct)
 
 	krb5_kadm5_object *obj;
 
-
+	KRB5_SET_ERROR_HANDLING(EH_THROW);
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b", &sprinc, &sprinc_len,
 					&spass, &spass_len,
 					&use_keytab) == FAILURE) {
 		RETURN_FALSE;
 	}
+	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 	if(strlen(spass) == 0) {
 		zend_throw_exception(NULL, "You may not specify an empty password or keytab", 0 TSRMLS_CC);

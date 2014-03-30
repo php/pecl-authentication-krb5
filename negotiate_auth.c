@@ -159,9 +159,11 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	char *keytab;
 	int keytab_len;
 
+	KRB5_SET_ERROR_HANDLING(EH_THROW);
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &keytab, &keytab_len) == FAILURE) {
 		RETURN_FALSE;
 	}
+	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 	if(krb5_gss_register_acceptor_identity(keytab) != GSS_S_COMPLETE) {
 		zend_throw_exception(NULL, "Failed to use credential cache", 0 TSRMLS_CC);

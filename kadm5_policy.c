@@ -141,9 +141,11 @@ PHP_METHOD(KADM5Policy, __construct)
 	zval *connobj = NULL;
 	zval *dummy_retval, *func;
 
+	KRB5_SET_ERROR_HANDLING(EH_THROW);
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|O", &spolicy, &spolicy_len, &connobj, krb5_ce_kadm5) == FAILURE) {
 		RETURN_NULL();
 	}
+	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 	obj = (krb5_kadm5_policy_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 	obj->policy = estrndup(spolicy, spolicy_len);
