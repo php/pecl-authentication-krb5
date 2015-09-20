@@ -31,6 +31,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5__construct, 0, 0, 2)
 	ZEND_ARG_INFO(0, principal)
 	ZEND_ARG_INFO(0, credentials)
 	ZEND_ARG_INFO(0, use_keytab)
+	ZEND_ARG_ARRAY_INFO(0, config, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPrincipal, 0, 0, 1)
@@ -83,6 +84,14 @@ void php_krb5_free_kadm5_object(krb5_kadm5_object *obj) {
 
 	if(obj) {
 		kadm5_destroy(&obj->handle);
+		if ( obj->config.realm != NULL ) {
+			efree(obj->config.realm);
+		}
+
+		if ( obj->config.admin_server != NULL ) {
+			efree(obj->config.admin_server);
+		}
+
 		krb5_free_context(obj->ctx);
 		efree(obj);
 	}
@@ -93,6 +102,9 @@ void php_krb5_free_kadm5_object(krb5_kadm5_object *obj) {
 static void php_krb5_kadm5_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	krb5_kadm5_object *object = (krb5_kadm5_object*)obj;
+
+
+
 	zend_object_std_dtor(&(object->std) TSRMLS_CC);
 
 	php_krb5_free_kadm5_object(object);
@@ -107,6 +119,8 @@ zend_object_value php_krb5_kadm5_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	object = emalloc(sizeof(krb5_kadm5_object));
 	object->refcount = 0;
+
+	memset(&object->config, 0, sizeof (kadm5_config_params));
 
 	zend_object_std_init(&(object->std), ce TSRMLS_CC);
 
@@ -147,7 +161,54 @@ int php_krb5_kadm5_register_classes(TSRMLS_D) {
 }
 /* }}} */
 
-/* {{{ proto KADM5::__construct(string $principal, string $credentials [, bool $use_keytab=0])
+static int php_krb5_kadm_parse_config(kadm5_config_params *kadm_params, zval *config TSRMLS_DC) {
+	int retval = 0;
+	zval **tmp = NULL;
+	zval *copy = NULL;
+	ALLOC_ZVAL(copy);
+
+	if (Z_TYPE_P(config) != IS_ARRAY) {
+		return KRB5KRB_ERR_GENERIC;
+	}
+
+	/* realm */
+	if (zend_hash_find(HASH_OF(config), "realm", sizeof("realm"), (void**)&tmp) == SUCCESS) {
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_string(copy);
+		if ((kadm_params->realm = emalloc(1+Z_STRLEN_P(copy)))) {
+			strncpy(kadm_params->realm, Z_STRVAL_P(copy), Z_STRLEN_P(copy));
+			kadm_params->realm[Z_STRLEN_P(copy)] = '\0';
+		}
+		zval_dtor(copy);
+		kadm_params->mask |= KADM5_CONFIG_REALM;
+	}
+
+	/* admin_server */
+	if (zend_hash_find(HASH_OF(config), "admin_server", sizeof("admin_server"), (void**)&tmp) == SUCCESS) {
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_string(copy);
+		if ((kadm_params->admin_server = emalloc(1+Z_STRLEN_P(copy)))) {
+			strncpy(kadm_params->admin_server, Z_STRVAL_P(copy), Z_STRLEN_P(copy));
+			kadm_params->admin_server[Z_STRLEN_P(copy)] = '\0';
+                }
+		zval_dtor(copy);
+		kadm_params->mask |= KADM5_CONFIG_ADMIN_SERVER;
+	}
+
+	/* admin_port */
+	if (zend_hash_find(HASH_OF(config), "kadmind_port", sizeof("kadmind_port"), (void**)&tmp) == SUCCESS) {
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_long(copy);
+		kadm_params->kadmind_port = Z_LVAL_P(copy);
+		zval_dtor(copy);
+		kadm_params->mask |= KADM5_CONFIG_KADMIND_PORT;
+	}
+
+	FREE_ZVAL(copy);
+	return retval;
+}
+
+/* {{{ proto KADM5::__construct(string $principal, string $credentials [, bool $use_keytab=0 [, array $config]])
 	Initialize a connection with the KADM server using the given credentials */
 PHP_METHOD(KADM5, __construct)
 {
@@ -161,36 +222,44 @@ PHP_METHOD(KADM5, __construct)
 
 	zend_bool use_keytab = 0;
 
+	zval* config = NULL;
 	krb5_kadm5_object *obj;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b", &sprinc, &sprinc_len,
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|ba", &sprinc, &sprinc_len,
 					&spass, &spass_len,
-					&use_keytab) == FAILURE) {
+					&use_keytab, &config) == FAILURE) {
 		RETURN_FALSE;
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 	if(strlen(spass) == 0) {
 		zend_throw_exception(NULL, "You may not specify an empty password or keytab", 0 TSRMLS_CC);
-		return;
+		RETURN_FALSE;
 	}
 
 	obj = (krb5_kadm5_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
 
+
+	if (config != NULL && php_krb5_kadm_parse_config(&(obj->config), config TSRMLS_CC)) {
+		zend_throw_exception(NULL, "Failed to parse kadmin config", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
 	if(krb5_init_context(&obj->ctx)) {
 		zend_throw_exception(NULL, "Failed to initialize kerberos library", 0 TSRMLS_CC);
+		RETURN_FALSE;
 	}
 
 		
 	if(!use_keytab) {
- 		retval = kadm5_init_with_password(obj->ctx, sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
+ 		retval = kadm5_init_with_password(obj->ctx, sprinc, spass, KADM5_ADMIN_SERVICE, &obj->config, 
  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
  	} else {
 
 		if (strlen(spass) != spass_len) {
 			zend_throw_exception(NULL, "Invalid keytab path", 0 TSRMLS_CC);
-			return;
+			RETURN_FALSE;
 		}
 #if PHP_VERSION_ID < 50399
   		if((PG(safe_mode) && !php_checkuid(spass, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
@@ -203,13 +272,17 @@ PHP_METHOD(KADM5, __construct)
   		}
 #endif
 
- 		retval = kadm5_init_with_skey(obj->ctx,sprinc, spass, KADM5_ADMIN_SERVICE, NULL, 
+ 		retval = kadm5_init_with_skey(obj->ctx,sprinc, spass, KADM5_ADMIN_SERVICE, &obj->config, 
  						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
 	}
 
 	if(retval != KADM5_OK) {
 		zend_throw_exception(NULL, (char*)krb5_get_error_message(obj->ctx, (int)retval), (int)retval TSRMLS_CC);
+		krb5_free_context(obj->ctx);
+		RETURN_FALSE;
 	}
+
+	RETURN_TRUE;
 }
 /* }}} */
 

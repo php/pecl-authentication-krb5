@@ -40,6 +40,7 @@
 		zend_object std;
 		void *handle;
 		krb5_context ctx;
+		kadm5_config_params config;
 		int refcount;
 	} krb5_kadm5_object;
 

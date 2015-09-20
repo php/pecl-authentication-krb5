@@ -274,6 +274,8 @@ static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *c
 {
 	int retval = 0;
 	zval **tmp = NULL;
+	zval *copy;
+	ALLOC_ZVAL(copy);
 
 	if (Z_TYPE_P(opts) != IS_ARRAY) {
 		return KRB5KRB_ERR_GENERIC;
@@ -281,82 +283,74 @@ static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *c
 
 	/* forwardable */
 	if (zend_hash_find(HASH_OF(opts), "forwardable", sizeof("forwardable"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_boolean_ex(tmp);
-
-		krb5_get_init_creds_opt_set_forwardable(cred_opts, Z_LVAL_PP(tmp));
-
-		zval_ptr_dtor(tmp);
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_boolean(copy);
+		krb5_get_init_creds_opt_set_forwardable(cred_opts, Z_LVAL_P(copy));
+		zval_dtor(copy);
 	}
+
 
 	/* proxiable */
 	if (zend_hash_find(HASH_OF(opts), "proxiable", sizeof("proxiable"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_boolean_ex(tmp);
-
-		krb5_get_init_creds_opt_set_proxiable(cred_opts, Z_LVAL_PP(tmp));
-
-		zval_ptr_dtor(tmp);
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_boolean(copy);
+		krb5_get_init_creds_opt_set_proxiable(cred_opts, Z_LVAL_P(copy));
+		zval_dtor(copy);
 	}
 
 #ifdef HAVE_KRB5_INIT_CREDS_CANONICALIZE
 	/* canonicalize */
 	if (zend_hash_find(HASH_OF(opts), "canonicalize", sizeof("canonicalize"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_boolean_ex(tmp);
-
-		krb5_get_init_creds_opt_set_canonicalize(cred_opts, Z_LVAL_PP(tmp));
-
-		zval_ptr_dtor(tmp);
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_boolean(copy);
+		krb5_get_init_creds_opt_set_canonicalize(cred_opts, Z_LVAL_P(copy));
+		zval_dtor(copy);
 	}
 #endif /* HAVE_KRB5_INIT_CREDS_CANONICALIZE */
 
 	/* tkt_life */
 	if (zend_hash_find(HASH_OF(opts), "tkt_life", sizeof("tkt_life"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_long_ex(tmp);
-
-		krb5_get_init_creds_opt_set_tkt_life(cred_opts, Z_LVAL_PP(tmp));
-
-		zval_ptr_dtor(tmp);
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_long(copy);
+		krb5_get_init_creds_opt_set_tkt_life(cred_opts, Z_LVAL_P(copy));
+		zval_dtor(copy);
 	}
 
 	/* renew_life */
 	if (zend_hash_find(HASH_OF(opts), "renew_life", sizeof("renew_life"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_long_ex(tmp);
-
-		krb5_get_init_creds_opt_set_renew_life(cred_opts, Z_LVAL_PP(tmp));
-
-		zval_ptr_dtor(tmp);
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_long(copy);
+		krb5_get_init_creds_opt_set_renew_life(cred_opts, Z_LVAL_P(copy));
+		zval_dtor(copy);
 	}
-
+	
 	/* service_name (krb5 arg "in_tkt_service") */
 	if (zend_hash_find(HASH_OF(opts), "service_name", sizeof("service_name"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_string_ex(tmp);
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_string(copy);
 
-		if ((*in_tkt_svc = emalloc(1+Z_STRLEN_PP(tmp)))) {
-			strncpy(*in_tkt_svc, Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp));
-			(*in_tkt_svc)[Z_STRLEN_PP(tmp)] = '\0';
+		if ((*in_tkt_svc = emalloc(1+Z_STRLEN_P(copy)))) {
+			strncpy(*in_tkt_svc, Z_STRVAL_P(copy), Z_STRLEN_P(copy));
+			(*in_tkt_svc)[Z_STRLEN_P(copy)] = '\0';
 		}
 
-		zval_ptr_dtor(tmp);
+		zval_dtor(copy);
 	}
 
 	/* verification keytab name */
-	if (zend_hash_find(HASH_OF(opts), "verify_keytab", sizeof("verify_keytab"), (void**) &tmp) == SUCCESS) {
-		SEPARATE_ZVAL(tmp);
-		convert_to_string_ex(tmp);
+	if (zend_hash_find(HASH_OF(opts), "verify_keytab", sizeof("verify_keytab"), (void**)&tmp) == SUCCESS) {
+		MAKE_COPY_ZVAL(tmp, copy);
+		convert_to_string(copy);
 
-		if ((*vfy_keytab = emalloc(1+Z_STRLEN_PP(tmp)))) {
-			strncpy(*vfy_keytab,Z_STRVAL_PP(tmp),Z_STRLEN_PP(tmp));
-			(*vfy_keytab)[Z_STRLEN_PP(tmp)] = '\0';
+		if ((*vfy_keytab = emalloc(1+Z_STRLEN_P(copy)))) {
+			strncpy(*vfy_keytab,Z_STRVAL_P(copy),Z_STRLEN_P(copy));
+			(*vfy_keytab)[Z_STRLEN_P(copy)] = '\0';
 		}
 
-		zval_ptr_dtor(tmp);
+		zval_dtor(copy);
 	}
 
+	FREE_ZVAL(copy);
 	return retval;
 } /* }}} */
 
@@ -714,7 +708,7 @@ PHP_METHOD(KRB5CCache, initPassword)
 #endif
 	have_cred_opts = 1;
 
-	if (opts) {
+	if (opts != NULL) {
 		if ((retval = php_krb5_parse_init_creds_opts(opts, cred_opts, &in_tkt_svc, &vfy_keytab TSRMLS_CC))) {
 			errstr = "Cannot parse credential options (%s)";
 			break;
