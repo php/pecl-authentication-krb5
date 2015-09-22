@@ -29,6 +29,7 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal__construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, principal)
 	ZEND_ARG_OBJ_INFO(0, connection, KADM5, 0)
+	ZEND_ARG_INFO(0, noload)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_changePassword, 0, 0, 1)
@@ -143,7 +144,7 @@ zend_object_value php_krb5_kadm5_principal_object_new(zend_class_entry *ce TSRML
 	return retval;
 }
 
-/* {{{ proto KADM5Principal KADM5Principal::__construct(string $principal [, KADM5 $connection ])
+/* {{{ proto KADM5Principal KADM5Principal::__construct(string $principal [, KADM5 $connection [, boolean $noload] ])
  */
 PHP_METHOD(KADM5Principal, __construct)
 {
@@ -151,11 +152,12 @@ PHP_METHOD(KADM5Principal, __construct)
 	char *sprinc = NULL;
 	int sprinc_len;
 
+	zend_bool noload = FALSE;
 	zval *obj = NULL;
 	zval *dummy_retval, *func;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|O", &sprinc, &sprinc_len, &obj, krb5_ce_kadm5) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|Ob", &sprinc, &sprinc_len, &obj, krb5_ce_kadm5, &noload) == FAILURE) {
 		RETURN_NULL();
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
@@ -165,20 +167,22 @@ PHP_METHOD(KADM5Principal, __construct)
 	if(obj && Z_TYPE_P(obj) == IS_OBJECT) {
 		zend_update_property(krb5_ce_kadm5_principal, getThis(), "connection", sizeof("connection"), obj TSRMLS_CC);
 
-		MAKE_STD_ZVAL(func);
-		ZVAL_STRING(func, "load", 1);
-		MAKE_STD_ZVAL(dummy_retval);
-		if(call_user_function(&krb5_ce_kadm5_principal->function_table, 
-								&getThis(), func, dummy_retval, 0, 
-								NULL TSRMLS_CC) == FAILURE) {
+		if ( noload != TRUE ) {
+			MAKE_STD_ZVAL(func);
+			ZVAL_STRING(func, "load", 1);
+			MAKE_STD_ZVAL(dummy_retval);
+			if(call_user_function(&krb5_ce_kadm5_principal->function_table, 
+									&getThis(), func, dummy_retval, 0, 
+									NULL TSRMLS_CC) == FAILURE) {
+				zval_ptr_dtor(&func);
+				zval_ptr_dtor(&dummy_retval);
+				zend_throw_exception(NULL, "Failed to update KADM5Principal object", 0 TSRMLS_CC);
+				return;
+			}
+
 			zval_ptr_dtor(&func);
 			zval_ptr_dtor(&dummy_retval);
-			zend_throw_exception(NULL, "Failed to update KADM5Principal object", 0 TSRMLS_CC);
-			return;
 		}
-
-		zval_ptr_dtor(&func);
-		zval_ptr_dtor(&dummy_retval);
 	}
 }
 /* }}} */
@@ -244,6 +248,8 @@ PHP_METHOD(KADM5Principal, save)
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
+
+
 	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection",
 									sizeof("connection"),1 TSRMLS_CC);
 
@@ -331,6 +337,12 @@ PHP_METHOD(KADM5Principal, delete)
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
+
+	if ( ! obj->loaded ) {
+		zend_throw_exception(NULL, "Object is not loaded", 0 TSRMLS_CC);
+		return;
+	}
+
 	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection",
 									sizeof("connection"),1 TSRMLS_CC);
 
@@ -339,6 +351,7 @@ PHP_METHOD(KADM5Principal, delete)
 		zend_throw_exception(NULL, "No valid connection available", 0 TSRMLS_CC);
 		return;
 	}
+
 
 	retval = kadm5_delete_principal(kadm5->handle, obj->data.principal);
 	if(retval != KADM5_OK) {
@@ -363,7 +376,15 @@ PHP_METHOD(KADM5Principal, rename)
 	int dst_name_len, dst_pw_len;
 	krb5_principal dst_princ;
 
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &dst_name, &dst_name_len,
+								&dst_pw, &dst_pw_len) == FAILURE) {
+		RETURN_FALSE;
+	}
 
+	if ( ! obj->loaded ) {
+		zend_throw_exception(NULL, "Object is not loaded", 0 TSRMLS_CC);
+		return;
+	}
 
 	connobj = zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection", 
 									sizeof("connection"),1 TSRMLS_CC);
@@ -374,10 +395,6 @@ PHP_METHOD(KADM5Principal, rename)
 		return;
 	}
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &dst_name, &dst_name_len,
-								&dst_pw, &dst_pw_len) == FAILURE) {
-		RETURN_FALSE;
-	}
 
 	krb5_parse_name(kadm5->ctx, dst_name, &dst_princ);
 	retval = kadm5_rename_principal(kadm5->handle, obj->data.principal, dst_princ);
@@ -418,6 +435,8 @@ PHP_METHOD(KADM5Principal, getPropertyArray)
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
+
+
 	kadm5 = (krb5_kadm5_object*)zend_object_store_get_object(connobj TSRMLS_CC);
 	if(!kadm5) {
 		zend_throw_exception(NULL, "No valid connection available", 0 TSRMLS_CC);
@@ -427,14 +446,27 @@ PHP_METHOD(KADM5Principal, getPropertyArray)
 	array_init(return_value);
 
 	char *tstring;
-	krb5_unparse_name(kadm5->ctx, obj->data.principal, &tstring);
-	add_assoc_string(return_value, "princname", tstring, 1);
+	if ( obj->data.principal != NULL ) {
+		krb5_unparse_name(kadm5->ctx, obj->data.principal, &tstring);
+		add_assoc_string(return_value, "princname", tstring, 1);
+	} else {
+		zval *val;
+		val = zend_read_property(krb5_ce_kadm5_principal, getThis(), "princname", 
+									sizeof("princname"),1 TSRMLS_CC);
+		convert_to_string(val);
+		add_assoc_string(return_value, "princname", Z_STRVAL_P(val), 1);
+		zval_ptr_dtor(&val);
+	}
 	add_assoc_long(return_value, "princ_expire_time", obj->data.princ_expire_time);
 	add_assoc_long(return_value, "last_pwd_change", obj->data.last_pwd_change);
 	add_assoc_long(return_value, "pw_expiration", obj->data.pw_expiration);
 	add_assoc_long(return_value, "max_life", obj->data.max_life);
-	krb5_unparse_name(kadm5->ctx, obj->data.mod_name, &tstring);
-	add_assoc_string(return_value, "mod_name", tstring, 1);
+	
+	if ( obj->data.mod_name ) {
+		krb5_unparse_name(kadm5->ctx, obj->data.mod_name, &tstring);
+		add_assoc_string(return_value, "mod_name", tstring, 1);
+	}
+
 	add_assoc_long(return_value, "mod_date", obj->data.mod_date);
 	add_assoc_long(return_value, "attributes", obj->data.attributes);
 	add_assoc_long(return_value, "kvno", obj->data.kvno);
@@ -471,12 +503,9 @@ PHP_METHOD(KADM5Principal, getName)
 		free(princname);
 	} else {
 		zval *val;
-
 		val = zend_read_property(krb5_ce_kadm5_principal, getThis(), "princname", 
 									sizeof("princname"),1 TSRMLS_CC);
-
 		convert_to_string(val);
-
 		ZVAL_STRING(return_value, Z_STRVAL_P(val), 1);
 		zval_ptr_dtor(&val);
 	}
@@ -492,6 +521,7 @@ PHP_METHOD(KADM5Principal, getExpiryTime)
 	if (zend_parse_parameters_none() == FAILURE) {
 		return;
 	}
+
 	RETURN_LONG(obj->data.princ_expire_time);
 }
 /* }}} */

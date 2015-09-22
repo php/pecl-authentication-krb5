@@ -36,6 +36,7 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPrincipal, 0, 0, 1)
 	ZEND_ARG_INFO(0, principal)
+	ZEND_ARG_INFO(0, noload)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5_getPrincipals, 0, 0, 0)
@@ -286,16 +287,17 @@ PHP_METHOD(KADM5, __construct)
 }
 /* }}} */
 
-/* {{{ proto KADM5Principal KADM5::getPrinicipal(string $principal)
+/* {{{ proto KADM5Principal KADM5::getPrinicipal(string $principal [, boolean $noload ])
 	Fetch a principal entry by name */
 PHP_METHOD(KADM5, getPrincipal)
 {
-	zval *dummy_retval, *ctor;
-	zval *args[2];
+	zval *dummy_retval, *ctor, *znoload;
+	zval *args[3];
 
 	zval *sprinc = NULL;
+	zend_bool noload = FALSE;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &sprinc) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|b", &sprinc, &noload) == FAILURE) {
 		RETURN_FALSE;
 	}
 
@@ -303,13 +305,16 @@ PHP_METHOD(KADM5, getPrincipal)
 
 	MAKE_STD_ZVAL(ctor);
 	ZVAL_STRING(ctor, "__construct", 1);
+	MAKE_STD_ZVAL(znoload);
+	ZVAL_BOOL(znoload, noload);
 
 	args[0] = sprinc;
 	args[1] = getThis();
+	args[2] = znoload;
 
 	MAKE_STD_ZVAL(dummy_retval);
 	if(call_user_function(&krb5_ce_kadm5_principal->function_table,
-							&return_value, ctor, dummy_retval, 2,
+							&return_value, ctor, dummy_retval, 3,
 							args TSRMLS_CC) == FAILURE) {
 		zval_dtor(ctor);
 		zval_dtor(dummy_retval);
@@ -318,6 +323,7 @@ PHP_METHOD(KADM5, getPrincipal)
 
 	zval_ptr_dtor(&ctor);
 	zval_ptr_dtor(&dummy_retval);
+	zval_ptr_dtor(&znoload);
 } /* }}} */
 
 /* {{{ proto array KADM5::getPrinicipals([string $filter])
