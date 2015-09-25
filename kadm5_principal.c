@@ -49,6 +49,11 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_setKeyVNO, 0, 0, 1)
 	ZEND_ARG_INFO(0, kvno)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_setAttributes, 0, 0, 1)
+	ZEND_ARG_INFO(0, attrs)
+ZEND_END_ARG_INFO()
+
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_setPolicy, 0, 0, 1)
 	ZEND_ARG_INFO(0, policy)
 ZEND_END_ARG_INFO()
@@ -76,6 +81,7 @@ static zend_function_entry krb5_kadm5_principal_functions[] = {
 	PHP_ME(KADM5Principal, getKeyVNO,               arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, setKeyVNO,               arginfo_KADM5Principal_setKeyVNO,      ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, getMasterKeyVNO,         arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Principal, setAttributes,           arginfo_KADM5Principal_setAttributes,  ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, getAttributes,           arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, getAuxAttributes,        arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, getPolicy,               arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
@@ -730,6 +736,24 @@ PHP_METHOD(KADM5Principal, getMasterKeyVNO)
 		return;
 	}
 	RETURN_LONG(obj->data.mkvno);
+}
+/* }}} */
+
+/* {{{ proto KADM5Principal KADM5Principal::setAttributes(int $attrs)
+ */
+PHP_METHOD(KADM5Principal, setAttributes)
+{
+	krb5_kadm5_principal_object *obj = (krb5_kadm5_principal_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	long attrs;
+
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &attrs) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	obj->data.attributes = attrs;
+	obj->update_mask |= KADM5_ATTRIBUTES;
+
+	RETURN_TRUE;
 }
 /* }}} */
 

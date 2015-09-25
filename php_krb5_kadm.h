@@ -95,6 +95,7 @@
 	PHP_METHOD(KADM5Principal, getKeyVNO);
 	PHP_METHOD(KADM5Principal, setKeyVNO);
 	PHP_METHOD(KADM5Principal, getMasterKeyVNO);
+	PHP_METHOD(KADM5Principal, setAttributes);
 	PHP_METHOD(KADM5Principal, getAttributes);
 	PHP_METHOD(KADM5Principal, getAuxAttributes);
 	PHP_METHOD(KADM5Principal, getPolicy);
