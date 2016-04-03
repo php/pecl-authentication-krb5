@@ -53,7 +53,7 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 	SOURCE_FILES="krb5.c negotiate_auth.c gssapi.c"
 
 	if test "$PHP_KRB5KADM" != "no"; then
-		SOURCE_FILES="${SOURCE_FILES} kadm.c kadm5_principal.c kadm5_policy.c"
+		SOURCE_FILES="${SOURCE_FILES} kadm.c kadm5_principal.c kadm5_policy.c kadm5_tldata.c"
 		AC_DEFINE(HAVE_KADM5, [], [Enable KADM5 support])
 	fi
 

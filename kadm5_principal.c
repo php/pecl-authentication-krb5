@@ -58,6 +58,10 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_setPolicy, 0, 0, 1)
 	ZEND_ARG_INFO(0, policy)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_setTLData, 0, 0, 1)
+	ZEND_ARG_INFO(0, tldata)
+ZEND_END_ARG_INFO()
+
 static zend_function_entry krb5_kadm5_principal_functions[] = {
 	PHP_ME(KADM5Principal, __construct,             arginfo_KADM5Principal__construct,     ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(KADM5Principal, load,                    arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
@@ -91,6 +95,8 @@ static zend_function_entry krb5_kadm5_principal_functions[] = {
 	PHP_ME(KADM5Principal, getLastFailed,           arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, getFailedAuthCount,      arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Principal, resetFailedAuthCount,    arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Principal, setTLData,               arginfo_KADM5Principal_setTLData,      ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Principal, getTLData,               arginfo_KADM5Principal_none,           ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -223,7 +229,7 @@ PHP_METHOD(KADM5Principal, load)
 		return;
 	}
 
-	retval = kadm5_get_principal(kadm5->handle, obj->data.principal, &obj->data, KADM5_PRINCIPAL_NORMAL_MASK);
+	retval = kadm5_get_principal(kadm5->handle, obj->data.principal, &obj->data, KADM5_PRINCIPAL_NORMAL_MASK | KADM5_TL_DATA);
 	if(retval != KADM5_OK) {
 		zend_throw_exception(NULL, krb5_get_error_message(kadm5->ctx, (int)retval), (int)retval TSRMLS_CC);
 		return;
@@ -427,7 +433,7 @@ PHP_METHOD(KADM5Principal, rename)
 
 /** property accessors **/
 
-/* {{{ proto KADM5Principal KADM5Principal::getPropertyArray()
+/* {{{ proto array KADM5Principal::getPropertyArray()
  */
 PHP_METHOD(KADM5Principal, getPropertyArray)
 {
@@ -463,6 +469,9 @@ PHP_METHOD(KADM5Principal, getPropertyArray)
 		add_assoc_string(return_value, "princname", Z_STRVAL_P(val), 1);
 		zval_ptr_dtor(&val);
 	}
+
+
+
 	add_assoc_long(return_value, "princ_expire_time", obj->data.princ_expire_time);
 	add_assoc_long(return_value, "last_pwd_change", obj->data.last_pwd_change);
 	add_assoc_long(return_value, "pw_expiration", obj->data.pw_expiration);
@@ -483,6 +492,12 @@ PHP_METHOD(KADM5Principal, getPropertyArray)
 	add_assoc_long(return_value, "last_success", obj->data.last_success);
 	add_assoc_long(return_value, "last_failed", obj->data.last_failed);
 	add_assoc_long(return_value, "fail_auth_count", obj->data.fail_auth_count);
+
+	if ( obj->data.n_tl_data  > 0 ) {
+		zval* tldata = php_krb5_kadm5_tldata_to_array(obj->data.tl_data, obj->data.n_tl_data TSRMLS_CC);
+		add_assoc_zval(return_value, "tldata", tldata);
+		zval_ptr_dtor(&tldata);
+	}
 }
 /* }}} */
 
@@ -934,5 +949,41 @@ PHP_METHOD(KADM5Principal, resetFailedAuthCount)
 	}
 	obj->data.fail_auth_count = 0;
 	obj->update_mask |= KADM5_FAIL_AUTH_COUNT;
+}
+/* }}} */
+
+
+/* {{{ proto array KADM5Principal::getTLData()
+ *
+ */
+PHP_METHOD(KADM5Principal, getTLData)
+{
+	krb5_kadm5_principal_object *obj = (krb5_kadm5_principal_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+
+	return_value = php_krb5_kadm5_tldata_to_array(obj->data.tl_data, obj->data.n_tl_data TSRMLS_CC);
+}
+/* }}} */
+
+/* {{{ proto void KADM5Principal::setTLData(array)
+ *
+ */
+PHP_METHOD(KADM5Principal, setTLData)
+{
+	krb5_kadm5_principal_object *obj = (krb5_kadm5_principal_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	zval *array;
+	
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &array) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if ( obj->data.tl_data && obj->data.n_tl_data > 0 ) {
+		php_krb5_kadm5_tldata_free(obj->data.tl_data, obj->data.n_tl_data TSRMLS_CC);
+	}
+	obj->data.tl_data = php_krb5_kadm5_tldata_from_array(array, &obj->data.n_tl_data TSRMLS_CC);
+	obj->update_mask |= KADM5_TL_DATA;
 }
 /* }}} */

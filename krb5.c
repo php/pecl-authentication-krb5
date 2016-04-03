@@ -39,6 +39,10 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 
+#ifdef HAVE_KADM5
+#include "kdb.h"
+#endif
+
 
 /* Class definition */
 
@@ -161,6 +165,9 @@ PHP_MINIT_FUNCTION(krb5)
 	REGISTER_LONG_CONSTANT("GSS_C_INITIATE", GSS_C_INITIATE, CONST_CS | CONST_PERSISTENT );
 	REGISTER_LONG_CONSTANT("GSS_C_ACCEPT", GSS_C_ACCEPT, CONST_CS | CONST_PERSISTENT );
 	
+#ifdef KRB5_TL_DB_ARGS
+	REGISTER_LONG_CONSTANT("KRB5_TL_DB_ARGS", KRB5_TL_DB_ARGS, CONST_CS | CONST_PERSISTENT );
+#endif
 
 	if(php_krb5_gssapi_register_classes(TSRMLS_C) != SUCCESS) {
 		return FAILURE;

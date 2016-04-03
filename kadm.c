@@ -157,6 +157,8 @@ int php_krb5_kadm5_register_classes(TSRMLS_D) {
 	/** register KADM5Policy **/
 	php_krb5_register_kadm5_policy(TSRMLS_C);
 
+	/** register KADM5TLData **/
+	php_krb5_register_kadm5_tldata(TSRMLS_C);
 
 	return SUCCESS;
 }

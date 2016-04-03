@@ -57,7 +57,7 @@
 
 
 
-/* KADM5Principal Object */
+	/* KADM5Principal Object */
 	zend_class_entry *krb5_ce_kadm5_principal;
 
 	typedef struct _krb5_kadm5_principal_object {
@@ -107,10 +107,12 @@
 	PHP_METHOD(KADM5Principal, resetFailedAuthCount);
 	PHP_METHOD(KADM5Principal, getMaxRenewableLifetime);
 	PHP_METHOD(KADM5Principal, setMaxRenewableLifetime);
+	PHP_METHOD(KADM5Principal, getTLData);
+	PHP_METHOD(KADM5Principal, setTLData);
 
 
 
-/* KADM5Policy Object */
+	/* KADM5Policy Object */
 	zend_class_entry *krb5_ce_kadm5_policy;
 
 	typedef struct _krb5_kadm5_policy_object {
@@ -148,6 +150,22 @@
 	PHP_METHOD(KADM5Policy, getReferenceCount);
 
 
+	/* KADM5TLData Object */
+	zend_class_entry *krb5_ce_kadm5_tldata;
 
+	typedef struct _krb5_kadm5_tldata_object {
+		zend_object std;
+		krb5_tl_data data;
+	} krb5_kadm5_tldata_object;
 
+	int php_krb5_register_kadm5_tldata(TSRMLS_D);
+	zend_object_value php_krb5_kadm5_tldata_object_new(zend_class_entry *ce TSRMLS_DC);
+
+	PHP_METHOD(KADM5TLData, __construct);
+	PHP_METHOD(KADM5TLData, getType);
+	PHP_METHOD(KADM5TLData, getData);
+
+	zval* php_krb5_kadm5_tldata_to_array(krb5_tl_data *data, krb5_int16 num TSRMLS_DC);
+	krb5_tl_data* php_krb5_kadm5_tldata_from_array(zval *array, krb5_int16* count TSRMLS_DC);
+	void php_krb5_kadm5_tldata_free(krb5_tl_data *data, krb5_int16 num TSRMLS_DC);
 #endif
