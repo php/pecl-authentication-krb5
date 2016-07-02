@@ -23,15 +23,21 @@
 
 #include "php.h"
 #include "php_krb5.h"
+#include "compat.h"
 
 /* Class definition */
 
 zend_class_entry *krb5_ce_gssapi_context;
 
 typedef struct _krb5_gssapi_context_object {
+#if PHP_MAJOR_VERSION < 7
 		zend_object std;
+#endif
 		gss_cred_id_t creds;
 		gss_ctx_id_t context;
+#if PHP_MAJOR_VERSION >= 7
+		zend_object std;
+#endif
 } krb5_gssapi_context_object;
 
 ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_registerAcceptorIdentity, 0, 0, 1)
@@ -123,7 +129,7 @@ MUTEX_T gssapi_mutex;
 
 #define ASSERT_GSS_SUCCESS(status,minor_status,retval) if(GSS_ERROR(status)) { \
 	php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC); \
-	return retval; \
+	RETURN_FALSE; \
 }
 
 /* {{{ */
@@ -167,6 +173,7 @@ void php_krb5_gssapi_handle_error(OM_uint32 major, OM_uint32 minor TSRMLS_DC)
 /* Setup functions */
 
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 void php_krb5_gssapi_context_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	OM_uint32 minor_status = 0;
@@ -184,10 +191,26 @@ void php_krb5_gssapi_context_object_dtor(void *obj, zend_object_handle handle TS
 
 	efree(object);
 }
+#else
+void php_krb5_gssapi_context_object_free(zend_object *obj TSRMLS_DC) {
+	OM_uint32 minor_status = 0;
+	krb5_gssapi_context_object *object = (krb5_gssapi_context_object*)((char *)obj - XtOffsetOf(krb5_gssapi_context_object, std));
+	
+	if(object->creds != GSS_C_NO_CREDENTIAL) {
+		gss_release_cred(&minor_status, &object->creds);
+	}
+
+	if(object->context != GSS_C_NO_CONTEXT) {
+		gss_delete_sec_context(&minor_status, &object->context,  GSS_C_NO_BUFFER);
+	}
+	zend_object_std_dtor(obj);
+}
+#endif
 /* }}} */
 
 
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 zend_object_value php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	zend_object_value retval;
@@ -201,7 +224,7 @@ zend_object_value php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS
 	INIT_STD_OBJECT(object->std, ce);
 
 #if PHP_VERSION_ID < 50399
-    zend_hash_copy(object->std.properties, &ce->default_properties,
+	zend_hash_copy(object->std.properties, &ce->default_properties,
 	        		(copy_ctor_func_t) zval_add_ref, NULL,
 					sizeof(zval*));
 #else
@@ -213,6 +236,20 @@ zend_object_value php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS
 	retval.handlers = &krb5_gssapi_context_handlers;
 	return retval;
 }
+#else
+zend_object *php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC) {
+	krb5_gssapi_context_object *object;
+	object = ecalloc(1, sizeof(krb5_gssapi_context_object) + zend_object_properties_size(ce));
+
+	object->context = GSS_C_NO_CONTEXT;
+	object->creds = GSS_C_NO_CREDENTIAL;
+
+	zend_object_std_init(&object->std, ce TSRMLS_CC);
+	object_properties_init(&object->std, ce);
+	object->std.handlers = &krb5_gssapi_context_handlers;
+	return &object->std;
+}
+#endif
 /* }}} */
 
 /* {{{ */
@@ -235,7 +272,12 @@ int php_krb5_gssapi_register_classes(TSRMLS_D)
 	INIT_CLASS_ENTRY(gssapi_context, "GSSAPIContext", krb5_gssapi_context_functions);
 	krb5_ce_gssapi_context = zend_register_internal_class(&gssapi_context TSRMLS_CC);
 	krb5_ce_gssapi_context->create_object = php_krb5_gssapi_context_object_new;
+
 	memcpy(&krb5_gssapi_context_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+#if PHP_MAJOR_VERSION >= 7
+	krb5_gssapi_context_handlers.offset = XtOffsetOf(krb5_gssapi_context_object, std);
+	krb5_gssapi_context_handlers.free_obj = php_krb5_gssapi_context_object_free;
+#endif
 
 	return SUCCESS;
 }
@@ -260,18 +302,68 @@ int php_krb5_gssapi_shutdown(TSRMLS_D)
 PHP_METHOD(GSSAPIContext, registerAcceptorIdentity)
 {
 	char *keytab;
-	int keytab_len;
+	strsize_t keytab_len = 0;
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &keytab, &keytab_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
 	if(krb5_gss_register_acceptor_identity(keytab) != GSS_S_COMPLETE) {
-		zend_throw_exception(NULL, "Failed to use credential cache", 0 TSRMLS_CC);
+		zend_throw_exception(NULL, "Failed to set acceptor identitiy", 0 TSRMLS_CC);
 		return;
 	}
 }
 
+
+#ifdef ZTS
+#define LOCK_MUTEX \
+	if(tsrm_mutex_lock(gssapi_mutex)) { \
+		php_error_docref(NULL TSRMLS_CC,  E_ERROR, "Failed to obtain mutex lock in GSSAPI module");\
+		return;\
+	}
+#define UNLOCK_MUTEX \
+	if(tsrm_mutex_unlock(gssapi_mutex)) {\
+		php_error_docref(NULL TSRMLS_CC,  E_ERROR, "Failed to release mutex lock in GSSAPI module");\
+		return;\
+	}
+#endif
+
+#define STORE_CONTEXT(ccache, oldkrb5ccname, oldkrb5ktname) { \
+	const char *ccnametmp = krb5_cc_get_name(ccache->ctx, ccache->cc); \
+        const char *cctypetmp = krb5_cc_get_type(ccache->ctx, ccache->cc); \
+\
+	ccname = malloc(strlen(ccnametmp) + strlen(cctypetmp) + 2); \
+	memset(ccname,0, strlen(ccnametmp) + strlen(cctypetmp) + 2); \
+\
+	strcat(ccname, cctypetmp);\
+	strcat(ccname, ":");\
+	strcat(ccname, ccnametmp);\
+	LOCK_MUTEX\
+	/* save current KRB5CCNAME for resetting purposes */\
+	oldkrb5ccname = getenv("KRB5CCNAME");\
+	oldkrb5ktname = getenv("KRB5_KTNAME");\
+\
+	setenv("KRB5CCNAME", ccname, 1);\
+	if(ccache->keytab) {\
+		setenv("KRB5_KTNAME", ccache->keytab, 1);\
+	}\
+	free(ccname);\
+}
+
+#define RESTORE_CONTEXT(oldkrb5ccname, oldkrb5ktname) \
+	/* reset KRB5CCNAME environment */\
+	if(oldkrb5ccname) {\
+		setenv("KRB5CCNAME", oldkrb5ccname, 1);\
+	} else {\
+		unsetenv("KRB5CCNAME");\
+	}\
+\
+	if(oldkrb5ktname) {\
+		setenv("KRB5_KTNAME", oldkrb5ktname, 1);\
+	} else {\
+		unsetenv("KRB5_KTNAME");\
+	}\
+	UNLOCK_MUTEX
 
 
 /* {{{ proto void GSSAPIContext::acquireCredentials( KRB5CCache $ccache [, string $name = null [, int $type = GSS_C_BOTH ]])
@@ -281,71 +373,76 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 	OM_uint32           status = 0;
 	OM_uint32           minor_status = 0;
 
-	zval *zccache = NULL;
+	zval* zccache;
 	krb5_ccache_object *ccache = NULL;
 	char *ccname = NULL;
 	
-	long type = GSS_C_BOTH;
+	zend_long type = GSS_C_BOTH;
 	
+	char *pname = NULL;
 	gss_buffer_desc nametmp;
 	gss_name_t name = GSS_C_NO_NAME;
+	strsize_t namelen = 0;
 	
 	memset(&nametmp, 0, sizeof(nametmp));
 	
 
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
-
-#ifdef ZTS
-	if(tsrm_mutex_lock(gssapi_mutex)) {
-		php_error_docref(NULL TSRMLS_CC,  E_ERROR, "Failed to obtain mutex lock in GSSAPI module");
-		return;
-	}
-#endif
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|sl", &zccache, krb5_ce_ccache,
-																&(nametmp.value), &(nametmp.length),
-																&type) == FAILURE) {
+		&(nametmp.value), &namelen,
+		&type) == FAILURE) {
 		RETURN_FALSE;
 	}
-
-	ccache = zend_object_store_get_object(zccache TSRMLS_CC);
-	const char *ccnametmp = krb5_cc_get_name(ccache->ctx, ccache->cc);
-	const char *cctypetmp = krb5_cc_get_type(ccache->ctx, ccache->cc);
-
-	ccname = malloc(strlen(ccnametmp) + strlen(cctypetmp) + 2);
-	memset(ccname,0, strlen(ccnametmp) + strlen(cctypetmp) + 2);
-
-	strcat(ccname, cctypetmp);
-	strcat(ccname, ":");
-	strcat(ccname, ccnametmp);
-
-	/* save current KRB5CCNAME for resetting purposes */
-	char *oldkrb5ccname = getenv("KRB5CCNAME");
-	char *oldkrb5ktname = getenv("KRB5_KTNAME");
-
-	setenv("KRB5CCNAME", ccname, 1);
-	if(ccache->keytab) {
-		setenv("KRB5_KTNAME", ccache->keytab, 1);
+	if ( namelen > 0 ) {
+		nametmp.length = namelen;
 	}
-	
-	free(ccname);
+
+	ccache = KRB5_CCACHE(zccache);
+
+	if ( ccache->keytab == NULL ) {
+		type = GSS_C_INITIATE;	
+	}
+
+	char *oldkrb5ccname = NULL, *oldkrb5ktname = NULL;
+	STORE_CONTEXT(ccache, oldkrb5ccname, oldkrb5ktname);
 
 	if(context->creds != GSS_C_NO_CREDENTIAL) {
 		gss_release_cred(&minor_status, &(context->creds));
 	}
 
+
+	if(nametmp.length == 0) {
+		krb5_principal ccprinc;
+		krb5_error_code err = krb5_cc_get_principal(ccache->ctx, ccache->cc, &ccprinc);
+		if ( err != 0 ) {
+			RESTORE_CONTEXT(oldkrb5ccname, oldkrb5ktname);
+			zend_throw_exception(NULL, "Failed to locate default principal in ccache", 0 TSRMLS_CC);
+			return;
+		}
+
+		krb5_unparse_name(ccache->ctx, ccprinc, &pname);
+		nametmp.value = pname;
+		nametmp.length = strlen(pname);
+		krb5_free_principal(ccache->ctx, ccprinc);
+	}
+
 	
 	if(nametmp.length != 0) { 
 		status = gss_import_name(&minor_status, &nametmp, GSS_C_NO_OID, &name);
-					
+
 		if(GSS_ERROR(status)) {
-#ifdef ZTS
-			if(tsrm_mutex_unlock(gssapi_mutex)) {
-				php_error_docref(NULL TSRMLS_CC,  E_ERROR, "Failed to release mutex lock in GSSAPI module");
+			if ( pname != NULL ) {
+				krb5_free_unparsed_name(ccache->ctx, pname);
 			}
-#endif
+			RESTORE_CONTEXT(oldkrb5ccname, oldkrb5ktname);
 			ASSERT_GSS_SUCCESS(status,minor_status,);
 		}
+	}
+
+
+	if ( pname != NULL ) {
+		krb5_free_unparsed_name(ccache->ctx, pname);
 	}
 
 	status =  gss_acquire_cred (
@@ -358,25 +455,7 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 	     NULL,
 	     NULL);
 
-	/* reset KRB5CCNAME environment */
-	if(oldkrb5ccname) {
-		setenv("KRB5CCNAME", oldkrb5ccname, 1);
-	} else {
-		unsetenv("KRB5CCNAME");
-	}
-
-	if(oldkrb5ktname) {
-		setenv("KRB5_KTNAME", oldkrb5ktname, 1);
-	} else {
-		unsetenv("KRB5_KTNAME");
-	}
-
-#ifdef ZTS
-	if(tsrm_mutex_unlock(gssapi_mutex)) {
-		php_error_docref(NULL TSRMLS_CC,  E_ERROR, "Failed to release mutex lock in GSSAPI module");
-		return;
-	}
-#endif
+	RESTORE_CONTEXT(oldkrb5ccname, oldkrb5ktname);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 } /* }}} */
 
@@ -386,17 +465,18 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 {
 	OM_uint32           status = 0;
 	OM_uint32           minor_status = 0;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
 	gss_name_t name = GSS_C_NO_NAME;
 	OM_uint32 lifetime = 0;
 	gss_cred_usage_t cred_usage = GSS_C_BOTH;
 	gss_OID_set mechs = GSS_C_NO_OID_SET;
+	gss_buffer_desc nametmp;
+	memset(&nametmp, 0, sizeof(gss_buffer_desc));
 
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	array_init(return_value);
 
 	status = gss_inquire_cred (
 	     &minor_status,
@@ -408,24 +488,23 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
-	gss_buffer_desc nametmp;
+	
 	status = gss_display_name(&minor_status, name, &nametmp, NULL);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
-
+	array_init(return_value);
 	char *nameval = estrdup(nametmp.value);
-
-	add_assoc_string(return_value, "name", nameval,1);
+	_add_assoc_string(return_value, "name", nameval);
 	efree(nameval);
 
 	add_assoc_long(return_value, "lifetime_remain", lifetime);
 
 	if(cred_usage == GSS_C_BOTH) {
-		add_assoc_string(return_value, "cred_usage", "both", 1);
+		_add_assoc_string(return_value, "cred_usage", "both");
 	} else if(cred_usage == GSS_C_INITIATE) {
-		add_assoc_string(return_value, "cred_usage", "initiate", 1);
+		_add_assoc_string(return_value, "cred_usage", "initiate");
 	} else if(cred_usage == GSS_C_ACCEPT) {
-		add_assoc_string(return_value, "cred_usage", "accept", 1);
+		_add_assoc_string(return_value, "cred_usage", "accept");
 	}
 
 	status = gss_release_buffer(&minor_status, &nametmp);
@@ -435,8 +514,8 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
 	size_t i = 0;
-	zval *mech_array = NULL;
-	ALLOC_INIT_ZVAL(mech_array);
+	_DECLARE_ZVAL(mech_array);
+	_ALLOC_INIT_ZVAL(mech_array);
 	array_init(mech_array);
 
 	for(i = 0; i < mechs->count; i++) {
@@ -445,7 +524,7 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 		status = gss_oid_to_str(&minor_status, &oid, &tmp);
 		ASSERT_GSS_SUCCESS(status,minor_status,);
 
-		add_next_index_string(mech_array, tmp.value, 1);
+		_add_next_index_string(mech_array, tmp.value);
 
 		status = gss_release_buffer(&minor_status, &tmp);
 		ASSERT_GSS_SUCCESS(status,minor_status,);
@@ -464,16 +543,18 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 {
 	OM_uint32  status = 0;
 	OM_uint32  minor_status = 0;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
 
-	OM_uint32 req_flags = 0;
+	zend_long req_flags = 0;
 	OM_uint32 ret_flags = 0;
-	OM_uint32 time_req = 0;
+	zend_long time_req = 0;
 	OM_uint32 time_rec = 0;
 	gss_buffer_desc tokenbuf;
 	gss_buffer_desc inputtoken;
 	gss_buffer_desc target;
+	strsize_t target_len = 0;
+	strsize_t inputtoken_len = 0;
 
 	memset(&inputtoken, 0, sizeof(inputtoken));
 	memset(&target, 0, sizeof(target));
@@ -483,9 +564,16 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	zval *zret_flags = NULL;
 	zval *ztime_rec = NULL;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|sllzzz",
-								&(target.value), &(target.length),
-								&(inputtoken.value), &(inputtoken.length),
+#if PHP_MAJOR_VERSION >= 7
+	const char *args = "s|sllz/z/z/";
+#else
+	
+	const char *args = "s|sllzzz";
+#endif
+
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
+								&(target.value), &target_len,
+								&(inputtoken.value), &inputtoken_len,
 								&req_flags,
 								&time_req,
 								&ztokenbuf,
@@ -494,7 +582,9 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 								) == FAILURE) {
 		return;
 	}
-
+	target.length = target_len;
+	inputtoken.length = inputtoken_len;
+	
 
 
 	gss_name_t targetname;
@@ -528,7 +618,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 
 	if(ztokenbuf) {
 		zval_dtor(ztokenbuf);
-		ZVAL_STRINGL(ztokenbuf, tokenbuf.value, tokenbuf.length, 1);
+		_ZVAL_STRINGL(ztokenbuf, tokenbuf.value, tokenbuf.length);
 	}
 
 	status = gss_release_buffer(&minor_status, &tokenbuf);
@@ -556,12 +646,13 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 {
 	OM_uint32           status = 0;
 	OM_uint32           minor_status = 0;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
 	gss_buffer_desc inputtoken;
 	gss_buffer_desc tokenbuf;
 	gss_name_t src_name = GSS_C_NO_NAME;
 	gss_cred_id_t deleg_creds = GSS_C_NO_CREDENTIAL;
+	strsize_t inputtoken_len = 0;
 
 	memset(&inputtoken, 0, sizeof(inputtoken));
 	memset(&tokenbuf, 0, sizeof(tokenbuf));
@@ -575,8 +666,15 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	zval* zsrc_name = NULL;
 	zval* zdeleg_creds = NULL;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|zzzzO",
-			&(inputtoken.value), &(inputtoken.length),
+#if PHP_MAJOR_VERSION >= 7
+	const char *args = "s|z/z/z/z/O";
+#else
+	
+	const char *args = "s|zzzzO";
+#endif
+
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
+			&(inputtoken.value), &inputtoken_len,
 			&ztokenbuf,
 			&zsrc_name,
 			&zret_flags,
@@ -584,6 +682,8 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 			&zdeleg_creds, krb5_ce_ccache) == FAILURE) {
 		return;
 	}
+
+	inputtoken.length = inputtoken_len;
 
 	status =  gss_accept_sec_context (
 			&minor_status,
@@ -612,7 +712,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 
 	 if(ztokenbuf) {
 		 zval_dtor(ztokenbuf);
-		 ZVAL_STRINGL(ztokenbuf, tokenbuf.value, tokenbuf.length, 1);
+		 _ZVAL_STRINGL(ztokenbuf, tokenbuf.value, tokenbuf.length);
 	 }
 
 	 status = gss_release_buffer(&minor_status, &tokenbuf);
@@ -623,7 +723,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 status = gss_display_name(&minor_status, src_name, &nametmp, NULL);
 		 ASSERT_GSS_SUCCESS(status,minor_status,);
 		 zval_dtor(zsrc_name);
-		 ZVAL_STRINGL(zsrc_name, nametmp.value, nametmp.length, 1);
+		 _ZVAL_STRINGL(zsrc_name, nametmp.value, nametmp.length);
 		 status = gss_release_buffer(&minor_status, &nametmp);
 		 ASSERT_GSS_SUCCESS(status,minor_status,);
 	 }
@@ -639,7 +739,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	 }
 
 	 if(zdeleg_creds && deleg_creds != GSS_C_NO_CREDENTIAL) {
-		 krb5_ccache_object *deleg_ccache = (krb5_ccache_object*) zend_object_store_get_object(zdeleg_creds TSRMLS_CC);
+		 krb5_ccache_object *deleg_ccache = KRB5_CCACHE(zdeleg_creds);
 		 krb5_error_code retval = 0;
 		 krb5_principal princ;
 		 
@@ -664,6 +764,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 		RETURN_FALSE;
 		 }
 
+		 krb5_free_principal(deleg_ccache->ctx,princ);
 		 /* copy credentials to ccache */ 
 		 status = gss_krb5_copy_ccache(&minor_status, deleg_creds, deleg_ccache->cc);
 
@@ -686,7 +787,7 @@ PHP_METHOD(GSSAPIContext, getTimeRemaining)
 	OM_uint32 status = 0;
 	OM_uint32 minor_status = 0;
 	OM_uint32 time_rec = 0;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
@@ -710,15 +811,17 @@ PHP_METHOD(GSSAPIContext, getMic)
 	OM_uint32 minor_status = 0;
 	gss_buffer_desc input;
 	gss_buffer_desc output;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+	strsize_t input_length = 0;
 
 	memset(&input, 0 , sizeof(input));
 
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
-			&(input.value), &(input.length)) == FAILURE) {
+			&(input.value), &input_length) == FAILURE) {
 		return;
 	}
+	input.length = input_length;
 
 
 	status = gss_get_mic (
@@ -731,7 +834,7 @@ PHP_METHOD(GSSAPIContext, getMic)
 
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
-	RETVAL_STRINGL(output.value, output.length, 1);
+	_RETVAL_STRINGL(output.value, output.length);
 
 	status = gss_release_buffer(&minor_status, &output);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
@@ -745,17 +848,21 @@ PHP_METHOD(GSSAPIContext, verifyMic)
 	OM_uint32 minor_status = 0;
 	gss_buffer_desc input;
 	gss_buffer_desc mic;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+	strsize_t input_length = 0;
+	strsize_t mic_length = 0;
 
 	memset(&input, 0 , sizeof(input));
 	memset(&mic, 0 , sizeof(mic));
 
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss",
-			&(input.value), &(input.length),
-			&(mic.value), &(mic.length)) == FAILURE) {
+			&(input.value), &input_length,
+			&(mic.value), &mic_length) == FAILURE) {
 		return;
 	}
+	input.length = input_length;
+	mic.length = mic_length;
 
 	status =  gss_verify_mic (
 			&minor_status,
@@ -780,19 +887,26 @@ PHP_METHOD(GSSAPIContext, wrap)
 	gss_buffer_desc input;
 	gss_buffer_desc output;
 	zval *zoutput;
-	long encrypt = 0;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	zend_long encrypt = 0;
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+	strsize_t input_length = 0;
 
 	memset(&input, 0 , sizeof(input));
 	memset(&output, 0 , sizeof(output));
 
+#if PHP_MAJOR_VERSION >= 7
+	const char *args = "sz/|b";
+#else
+	const char *args = "sz|b";
+#endif
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz|b",
-			&(input.value), &(input.length),
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
+			&(input.value), &input_length,
 			&zoutput,
 			&encrypt) == FAILURE) {
 		return;
 	}
+	input.length = input_length;
 
 	RETVAL_FALSE;
 
@@ -809,7 +923,7 @@ PHP_METHOD(GSSAPIContext, wrap)
 
 	if(zoutput) {
 		zval_dtor(zoutput);
-		ZVAL_STRINGL(zoutput, output.value, output.length, 1);
+		_ZVAL_STRINGL(zoutput, output.value, output.length);
 	}
 
 	RETVAL_TRUE;
@@ -828,17 +942,24 @@ PHP_METHOD(GSSAPIContext, unwrap)
 	gss_buffer_desc input;
 	gss_buffer_desc output;
 	zval *zoutput;
-	krb5_gssapi_context_object *context = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+	strsize_t input_length = 0;
 
 	memset(&input, 0 , sizeof(input));
 	memset(&output, 0 , sizeof(output));
 
+#if PHP_MAJOR_VERSION >= 7
+	const char *args = "sz/";
+#else
+	const char *args = "sz";
+#endif
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz",
-			&(input.value), &(input.length),
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
+			&(input.value), &input_length,
 			&zoutput) == FAILURE) {
 		return;
 	}
+	input.length = input_length;
 
 	RETVAL_FALSE;
 
@@ -854,7 +975,7 @@ PHP_METHOD(GSSAPIContext, unwrap)
 
 	if(zoutput) {
 		zval_dtor(zoutput);
-		ZVAL_STRINGL(zoutput, output.value, output.length, 1);
+		_ZVAL_STRINGL(zoutput, output.value, output.length);
 	}
 
 	RETVAL_TRUE;

@@ -30,8 +30,13 @@ int php_krb5_gssapi_register_classes(TSRMLS_D);
 int php_krb5_gssapi_shutdown(TSRMLS_D);
 
 
+#if PHP_MAJOR_VERSION < 7
 extern void php_krb5_gssapi_context_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC);
 zend_object_value php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC);
+#else
+extern void php_krb5_gssapi_context_object_free(zend_object *obj TSRMLS_DC);
+zend_object *php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC);
+#endif
 
 
 #endif /* PHP_KRB5_GSSAPI_H */

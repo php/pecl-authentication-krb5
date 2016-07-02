@@ -1,7 +1,14 @@
 <?php
 $conn = new KADM5('test2/admin', 'test.keytab', true);
 
-$policy = $conn->getPolicy('some');
+$policy = null;
+try {
+	$policy = $conn->getPolicy('some');
+} catch (Exception $e) {
+	$newpol = new KADM5Policy('some');
+	$conn->createPolicy($newpol);
+	$policy = $conn->getPolicy('some');
+}
 
 var_dump($policy->getPropertyArray());
 
@@ -20,6 +27,13 @@ $princ->save();
 
 $policy->load();
 var_dump($policy->getPropertyArray());
+
+
+try {
+	$policy = $conn->getPolicy('testing');
+	$policy->delete();
+} catch (Exception $e) {
+}
 
 $newpol = new KADM5Policy('testing');
 $newpol->setMinPasswordLife(500023523);

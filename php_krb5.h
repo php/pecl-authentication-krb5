@@ -44,7 +44,7 @@
 #include <gssapi/gssapi_krb5.h>
 
 #define PHP_KRB5_EXT_NAME "krb5"
-#define PHP_KRB5_VERSION "1.0.0"
+#define PHP_KRB5_VERSION "1.1.0"
 
 
 extern zend_module_entry krb5_module_entry;
@@ -64,10 +64,15 @@ PHP_MINFO_FUNCTION(krb5);
 zend_class_entry *krb5_ce_ccache;
 
 typedef struct _krb5_ccache_object {
+#if PHP_MAJOR_VERSION < 7
 	zend_object std;
+#endif
 	krb5_context ctx;
 	krb5_ccache cc;
 	char *keytab;
+#if PHP_MAJOR_VERSION >= 7
+	zend_object std;
+#endif
 } krb5_ccache_object;
 
 krb5_error_code php_krb5_display_error(krb5_context ctx, krb5_error_code code, char* str TSRMLS_DC);
@@ -82,61 +87,5 @@ int php_krb5_kadm5_register_classes(TSRMLS_D);
 #endif
 
 
-/* PHP Compatability */
-#if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION == 1 && PHP_RELEASE_VERSION > 2) || (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION > 1) || (PHP_MAJOR_VERSION > 5)
-
-#define INIT_STD_OBJECT(object, ce) zend_object_std_init(&(object), ce TSRMLS_CC);
-
-#else
-
-#define INIT_STD_OBJECT(object, ce) \
-	{ 	\
-		ALLOC_HASHTABLE(object.properties); \
-		zend_hash_init(object.properties,0, NULL, ZVAL_PTR_DTOR, 0); \
-		object.ce = ce; \
-		object.guards = NULL; \
-	}
-
-#endif
-
-
-#if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION == 1 && PHP_RELEASE_VERSION > 2) || (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION > 1) || (PHP_MAJOR_VERSION > 5)
-#define OBJECT_STD_DTOR(object) zend_object_std_dtor(&(object) TSRMLS_CC);
-#else
-#define OBJECT_STD_DTOR(object) \
-	{ 	\
-		if(object.guards) { \
-			zend_hash_destroy(object.guards); \
-			FREE_HASHTABLE(object.guards); \
-		} \
-		if(object.properties) { \
-			zend_hash_destroy(object.properties); \
-			FREE_HASHTABLE(object.properties); \
-		} \
-	}
-#endif
-
-#if defined(PHP_VERSION_ID) && PHP_VERSION_ID >= 50400
-#define ARG_PATH "p"
-#else
-#define ARG_PATH "s"
-#endif
-
-#if defined(PHP_VERSION_ID) && PHP_VERSION_ID >= 50300
-/* php_set_error_handling() is deprecated */
-#define KRB5_SET_ERROR_HANDLING(type)  zend_replace_error_handling(type, NULL, NULL TSRMLS_CC)
-#else
-#define KRB5_SET_ERROR_HANDLING(type)  php_set_error_handling(type, NULL  TSRMLS_CC)
-#endif
-
-/* For PHP < 5.3 */
-#ifndef zend_parse_parameters_none
-#define zend_parse_parameters_none() zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "")
-#endif
-
-/* For PHP < 5.3 */
-#ifndef PHP_FE_END
-#define PHP_FE_END {NULL, NULL, NULL}
-#endif
 
 #endif /* PHP_KRB5_H */

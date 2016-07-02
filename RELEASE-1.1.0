@@ -1,1 +1,6 @@
+- [FEATURE] PHP7 compatibility
 - [FEATURE] Support getting/setting TL_DATA in KADM
+- [BUG] Fix GSSAPI->acquireCredentials behaviour, 
+   now defaults to GSS_C_INITIATE if only a ccache is available
+   eagerly initialize credentials when no principal is specified (use ccache default principal)
+- [BUG] Fix a couple of memory leaks, add a few more sanity checks

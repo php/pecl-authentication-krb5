@@ -23,6 +23,7 @@
 #include "config.h"
 #include "php_krb5.h"
 #include "php_krb5_kadm.h"
+#include "compat.h"
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5TLData_none, 0, 0, 0)
 ZEND_END_ARG_INFO()
@@ -39,6 +40,7 @@ static zend_function_entry krb5_kadm5_tldata_functions[] = {
 zend_object_handlers krb5_kadm5_tldata_handlers;
 
 /* KADM5Principal ctor/dtor */
+#if PHP_MAJOR_VERSION < 7
 static void php_krb5_kadm5_tldata_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	krb5_kadm5_tldata_object *object = (krb5_kadm5_tldata_object*)obj;
@@ -51,6 +53,15 @@ static void php_krb5_kadm5_tldata_object_dtor(void *obj, zend_object_handle hand
 		efree(object);
 	}
 }
+#else
+static void php_krb5_kadm5_tldata_object_free(zend_object *obj TSRMLS_DC)
+{
+	krb5_kadm5_tldata_object *object = (krb5_kadm5_tldata_object*)((char *)obj - XtOffsetOf(krb5_kadm5_tldata_object, std));
+	if ( object->data.tl_data_contents ) {
+		efree(object->data.tl_data_contents);
+	}
+}
+#endif
 
 int php_krb5_register_kadm5_tldata(TSRMLS_D) {
 
@@ -60,10 +71,15 @@ int php_krb5_register_kadm5_tldata(TSRMLS_D) {
 	krb5_ce_kadm5_tldata = zend_register_internal_class(&kadm5_tldata TSRMLS_CC);
 	krb5_ce_kadm5_tldata->create_object = php_krb5_kadm5_tldata_object_new;
 	memcpy(&krb5_kadm5_tldata_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+#if PHP_MAJOR_VERSION >= 7
+	krb5_kadm5_tldata_handlers.offset = XtOffsetOf(krb5_kadm5_tldata_object, std);
+	krb5_kadm5_tldata_handlers.free_obj = php_krb5_kadm5_tldata_object_free;
+#endif
 	return SUCCESS;
 }
 
 
+#if PHP_MAJOR_VERSION < 7
 zend_object_value php_krb5_kadm5_tldata_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	zend_object_value retval;
@@ -88,15 +104,25 @@ zend_object_value php_krb5_kadm5_tldata_object_new(zend_class_entry *ce TSRMLS_D
 	retval.handlers = &krb5_kadm5_tldata_handlers;
 	return retval;
 }
+#else
+zend_object* php_krb5_kadm5_tldata_object_new(zend_class_entry *ce TSRMLS_DC)
+{
+	krb5_kadm5_tldata_object *object = ecalloc(1, sizeof(krb5_kadm5_tldata_object) + zend_object_properties_size(ce));
+	zend_object_std_init(&object->std, ce TSRMLS_CC);
+	object_properties_init(&object->std, ce);
+	object->std.handlers = &krb5_kadm5_tldata_handlers;
+	return &object->std;
+}
+#endif
 
 
 /* {{{ proto KADM5TLData KADM5TLData::__construct( long type [, string data])
  */
 PHP_METHOD(KADM5TLData, __construct)
 {
-	long type = 0;
+	zend_long type = 0;
 	char *data;
-	int data_len = 0;
+	strsize_t data_len = 0;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ls", &type, &data, &data_len) == FAILURE) {
@@ -105,7 +131,7 @@ PHP_METHOD(KADM5TLData, __construct)
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 
-	krb5_kadm5_tldata_object *tldata = (krb5_kadm5_tldata_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_kadm5_tldata_object *tldata = KRB5_THIS_KADM_TLDATA;
 
 	tldata->data.tl_data_type = type;
 	tldata->data.tl_data_length = data_len;
@@ -118,7 +144,7 @@ PHP_METHOD(KADM5TLData, __construct)
  */
 PHP_METHOD(KADM5TLData, getType)
 {
-	krb5_kadm5_tldata_object *tldata = (krb5_kadm5_tldata_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_kadm5_tldata_object *tldata = KRB5_THIS_KADM_TLDATA;
 
 	RETURN_LONG(tldata->data.tl_data_type);
 }
@@ -128,35 +154,30 @@ PHP_METHOD(KADM5TLData, getType)
  */
 PHP_METHOD(KADM5TLData, getData)
 {
-	krb5_kadm5_tldata_object *tldata = (krb5_kadm5_tldata_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_kadm5_tldata_object *tldata = KRB5_THIS_KADM_TLDATA;
 
-	RETURN_STRINGL((char*)tldata->data.tl_data_contents, tldata->data.tl_data_length, 1);
+	_RETVAL_STRINGL((char*)tldata->data.tl_data_contents, tldata->data.tl_data_length);
 }
 /* }}} */
 
 
-zval* php_krb5_kadm5_tldata_to_array(krb5_tl_data *data, krb5_int16 num TSRMLS_DC) {
-	zval *array;
-	ALLOC_INIT_ZVAL(array);
-	array_init(array);
-
+void php_krb5_kadm5_tldata_to_array(zval* array, krb5_tl_data *data, krb5_int16 num TSRMLS_DC) {
 	krb5_tl_data *cur = data;
 	int n = num;
 	while ( n > 0 && cur ) {
-		zval* entry;
-		ALLOC_INIT_ZVAL(entry);
+		zval *entry = ecalloc(1, sizeof(zval));
+		_ALLOC_INIT_ZVAL(entry);
 		object_init_ex(entry, krb5_ce_kadm5_tldata);
-		krb5_kadm5_tldata_object *tldata = (krb5_kadm5_tldata_object*)zend_object_store_get_object(entry TSRMLS_CC);
+		krb5_kadm5_tldata_object *tldata = KRB5_KADM_TLDATA(entry);
 		tldata->data.tl_data_type = cur->tl_data_type;
 		tldata->data.tl_data_length = cur->tl_data_length;
 		tldata->data.tl_data_contents = emalloc(cur->tl_data_length);
 		memcpy(tldata->data.tl_data_contents, cur->tl_data_contents, cur->tl_data_length);
 		add_next_index_zval(array, entry);
-		zval_ptr_dtor(&entry);
+		//zval_ptr_dtor(entry);
 		cur = cur->tl_data_next;
 		n--;
 	}
-	return array;
 }
 
 void php_krb5_kadm5_tldata_free(krb5_tl_data *data, krb5_int16 count TSRMLS_DC) {
@@ -176,19 +197,24 @@ void php_krb5_kadm5_tldata_free(krb5_tl_data *data, krb5_int16 count TSRMLS_DC) 
 
 krb5_tl_data* php_krb5_kadm5_tldata_from_array(zval *array, krb5_int16* count TSRMLS_DC) {
 
-	HashTable *arr_hash;
-	HashPosition pointer;
+	HashTable *arr_hash = Z_ARRVAL_P(array);
 	int have_count = 0;
-	zval **entry;
 	krb5_tl_data *head = NULL;
 	krb5_tl_data *cur = NULL;
 
-	arr_hash = Z_ARRVAL_P(array);
+#if PHP_MAJOR_VERSION < 7
+	HashPosition pointer;
+	zval **entryp;
 	for(	zend_hash_internal_pointer_reset_ex(arr_hash, &pointer); 
-		zend_hash_get_current_data_ex(arr_hash, (void**) &entry, &pointer) == SUCCESS; 
+		zend_hash_get_current_data_ex(arr_hash, (void**) &entryp, &pointer) == SUCCESS; 
 		zend_hash_move_forward_ex(arr_hash, &pointer)) {
 
-		if ( Z_TYPE_PP(entry) != IS_OBJECT || zend_get_class_entry(*entry TSRMLS_CC) != krb5_ce_kadm5_tldata ) {
+		zval *entry = *entryp;
+#else
+	zval *entry;
+	ZEND_HASH_FOREACH_VAL(arr_hash, entry) {
+#endif
+		if ( Z_TYPE_P(entry) != IS_OBJECT || Z_OBJCE_P(entry) != krb5_ce_kadm5_tldata ) {
 			continue;
 		}
 
@@ -198,7 +224,7 @@ krb5_tl_data* php_krb5_kadm5_tldata_from_array(zval *array, krb5_int16* count TS
 		if ( last ) {
 			last->tl_data_next = cur;
 		}
-		krb5_kadm5_tldata_object *tldata = (krb5_kadm5_tldata_object*)zend_object_store_get_object(*entry TSRMLS_CC);
+		krb5_kadm5_tldata_object *tldata = KRB5_KADM_TLDATA(entry);
 		cur->tl_data_type = tldata->data.tl_data_type;
 		cur->tl_data_length = tldata->data.tl_data_length;
 		cur->tl_data_contents = malloc(tldata->data.tl_data_length);
@@ -207,7 +233,11 @@ krb5_tl_data* php_krb5_kadm5_tldata_from_array(zval *array, krb5_int16* count TS
 		if ( head == NULL ) {
 			head = cur;
 		}
+#if PHP_MAJOR_VERSION < 7
 	}
+#else
+	} ZEND_HASH_FOREACH_END();
+#endif
 	*count = have_count;
 	return head;
 }

@@ -22,6 +22,7 @@
 
 #include "php_krb5.h"
 #include "php_krb5_kadm.h"
+#include "compat.h"
 
 
 
@@ -77,12 +78,6 @@ static zend_function_entry krb5_kadm5_functions[] = {
 
 /* {{{ */
 void php_krb5_free_kadm5_object(krb5_kadm5_object *obj) {
-
-	if(obj->refcount > 0) {
-		obj->refcount--;
-		return;
-	}
-
 	if(obj) {
 		kadm5_destroy(&obj->handle);
 		if ( obj->config.realm != NULL ) {
@@ -100,27 +95,42 @@ void php_krb5_free_kadm5_object(krb5_kadm5_object *obj) {
 /* }}} */
 
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 static void php_krb5_kadm5_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	krb5_kadm5_object *object = (krb5_kadm5_object*)obj;
-
-
-
 	zend_object_std_dtor(&(object->std) TSRMLS_CC);
-
 	php_krb5_free_kadm5_object(object);
 }
+#else
+static void php_krb5_kadm5_object_free(zend_object *obj TSRMLS_DC)
+{
+	krb5_kadm5_object *object = (krb5_kadm5_object*)((char *)obj - XtOffsetOf(krb5_kadm5_object, std));
+	kadm5_destroy(&object->handle);
+	if ( object->config.realm != NULL ) {
+		efree(object->config.realm);
+	}
+
+	if ( object->config.admin_server != NULL ) {
+		efree(object->config.admin_server);
+	}
+	if ( object->ctx ) {
+		krb5_free_context(object->ctx);
+		object->ctx = NULL;
+	}
+	zend_object_std_dtor(obj);
+}
+#endif
 /* }}} */
 
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 zend_object_value php_krb5_kadm5_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	zend_object_value retval;
 	krb5_kadm5_object *object;
 
 	object = emalloc(sizeof(krb5_kadm5_object));
-	object->refcount = 0;
-
 	memset(&object->config, 0, sizeof (kadm5_config_params));
 
 	zend_object_std_init(&(object->std), ce TSRMLS_CC);
@@ -138,6 +148,16 @@ zend_object_value php_krb5_kadm5_object_new(zend_class_entry *ce TSRMLS_DC)
 	retval.handlers = &krb5_kadm5_handlers;
 	return retval;
 }
+#else
+zend_object* php_krb5_kadm5_object_new(zend_class_entry *ce TSRMLS_DC)
+{
+	krb5_kadm5_object *object = ecalloc(1, sizeof(krb5_kadm5_object) + zend_object_properties_size(ce));
+	zend_object_std_init(&object->std, ce TSRMLS_CC);
+	object_properties_init(&object->std, ce);
+	object->std.handlers = &krb5_kadm5_handlers;
+	return &object->std;
+}
+#endif
 /* }}} */
 
 /* Register classes */
@@ -150,6 +170,10 @@ int php_krb5_kadm5_register_classes(TSRMLS_D) {
 	krb5_ce_kadm5 = zend_register_internal_class(&kadm5 TSRMLS_CC);
 	krb5_ce_kadm5->create_object = php_krb5_kadm5_object_new;
 	memcpy(&krb5_kadm5_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+#if PHP_MAJOR_VERSION >= 7
+	krb5_kadm5_handlers.offset = XtOffsetOf(krb5_kadm5_object, std);
+	krb5_kadm5_handlers.free_obj = php_krb5_kadm5_object_free;
+#endif
 
 	/** register KADM5Principal **/
 	php_krb5_register_kadm5_principal(TSRMLS_C);
@@ -166,48 +190,43 @@ int php_krb5_kadm5_register_classes(TSRMLS_D) {
 
 static int php_krb5_kadm_parse_config(kadm5_config_params *kadm_params, zval *config TSRMLS_DC) {
 	int retval = 0;
-	zval **tmp = NULL;
-	zval *copy = NULL;
-	ALLOC_ZVAL(copy);
+	zval *tmp = NULL;
 
 	if (Z_TYPE_P(config) != IS_ARRAY) {
 		return KRB5KRB_ERR_GENERIC;
 	}
 
 	/* realm */
-	if (zend_hash_find(HASH_OF(config), "realm", sizeof("realm"), (void**)&tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_string(copy);
-		if ((kadm_params->realm = emalloc(1+Z_STRLEN_P(copy)))) {
-			strncpy(kadm_params->realm, Z_STRVAL_P(copy), Z_STRLEN_P(copy));
-			kadm_params->realm[Z_STRLEN_P(copy)] = '\0';
+	tmp = zend_compat_hash_find(HASH_OF(config), "realm", sizeof("realm"));
+	if ( tmp != NULL ) {
+		zend_string *realm = zval_get_string(tmp TSRMLS_CC);
+		if ((kadm_params->realm = emalloc(1+realm->len))) {
+			strncpy(kadm_params->realm, realm->val, realm->len);
+			kadm_params->realm[realm->len] = '\0';
 		}
-		zval_dtor(copy);
+		zend_string_release(realm);
 		kadm_params->mask |= KADM5_CONFIG_REALM;
 	}
 
 	/* admin_server */
-	if (zend_hash_find(HASH_OF(config), "admin_server", sizeof("admin_server"), (void**)&tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_string(copy);
-		if ((kadm_params->admin_server = emalloc(1+Z_STRLEN_P(copy)))) {
-			strncpy(kadm_params->admin_server, Z_STRVAL_P(copy), Z_STRLEN_P(copy));
-			kadm_params->admin_server[Z_STRLEN_P(copy)] = '\0';
+	tmp = zend_compat_hash_find(HASH_OF(config), "admin_server", sizeof("admin_server"));
+	if (tmp != NULL) {
+		zend_string *admin_server = zval_get_string(tmp TSRMLS_CC);
+		if ((kadm_params->admin_server = emalloc(1+admin_server->len))) {
+			strncpy(kadm_params->admin_server, admin_server->val, admin_server->len);
+			kadm_params->admin_server[admin_server->len] = '\0';
                 }
-		zval_dtor(copy);
+		zend_string_release(admin_server);
 		kadm_params->mask |= KADM5_CONFIG_ADMIN_SERVER;
 	}
 
 	/* admin_port */
-	if (zend_hash_find(HASH_OF(config), "kadmind_port", sizeof("kadmind_port"), (void**)&tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_long(copy);
-		kadm_params->kadmind_port = Z_LVAL_P(copy);
-		zval_dtor(copy);
+	tmp = zend_compat_hash_find(HASH_OF(config), "kadmind_port", sizeof("kadmind_port"));
+	if (tmp != NULL) {
+		kadm_params->kadmind_port = zval_get_long(tmp TSRMLS_CC);
 		kadm_params->mask |= KADM5_CONFIG_KADMIND_PORT;
 	}
 
-	FREE_ZVAL(copy);
 	return retval;
 }
 
@@ -218,10 +237,10 @@ PHP_METHOD(KADM5, __construct)
 	kadm5_ret_t retval;
 
 	char *sprinc;
-	int sprinc_len;
+	strsize_t sprinc_len;
 
 	char *spass = NULL;
-	int spass_len;
+	strsize_t spass_len;
 
 	zend_bool use_keytab = 0;
 
@@ -241,7 +260,7 @@ PHP_METHOD(KADM5, __construct)
 		RETURN_FALSE;
 	}
 
-	obj = (krb5_kadm5_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	obj = KRB5_THIS_KADM;
 
 
 	if (config != NULL && php_krb5_kadm_parse_config(&(obj->config), config TSRMLS_CC)) {
@@ -262,15 +281,21 @@ PHP_METHOD(KADM5, __construct)
 
 		if (strlen(spass) != spass_len) {
 			zend_throw_exception(NULL, "Invalid keytab path", 0 TSRMLS_CC);
+			krb5_free_context(obj->ctx);
+			obj->ctx = NULL;
 			RETURN_FALSE;
 		}
 #if PHP_VERSION_ID < 50399
   		if((PG(safe_mode) && !php_checkuid(spass, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
   			php_check_open_basedir(spass TSRMLS_CC)) {
+			krb5_free_context(obj->ctx);
+			obj->ctx = NULL;
   			RETURN_FALSE;
   		}
 #else
   		if( php_check_open_basedir(spass TSRMLS_CC)) {
+			krb5_free_context(obj->ctx);
+			obj->ctx = NULL;
   			RETURN_FALSE;
   		}
 #endif
@@ -280,8 +305,11 @@ PHP_METHOD(KADM5, __construct)
 	}
 
 	if(retval != KADM5_OK) {
-		zend_throw_exception(NULL, (char*)krb5_get_error_message(obj->ctx, (int)retval), (int)retval TSRMLS_CC);
+		const char* errmsg = krb5_get_error_message(obj->ctx, (int)retval);
+		zend_throw_exception(NULL, errmsg, (int)retval TSRMLS_CC);
+		krb5_free_error_message(obj->ctx, errmsg);
 		krb5_free_context(obj->ctx);
+		obj->ctx = NULL;
 		RETURN_FALSE;
 	}
 
@@ -293,8 +321,7 @@ PHP_METHOD(KADM5, __construct)
 	Fetch a principal entry by name */
 PHP_METHOD(KADM5, getPrincipal)
 {
-	zval *dummy_retval, *ctor, *znoload;
-	zval *args[3];
+	
 
 	zval *sprinc = NULL;
 	zend_bool noload = FALSE;
@@ -305,10 +332,14 @@ PHP_METHOD(KADM5, getPrincipal)
 
 	object_init_ex(return_value, krb5_ce_kadm5_principal);
 
+#if PHP_MAJOR_VERSION < 7
+	zval *dummy_retval, *ctor, *znoload;
+	zval *args[3];
 	MAKE_STD_ZVAL(ctor);
-	ZVAL_STRING(ctor, "__construct", 1);
+	ZVAL_STRING(ctor, "__construct",1);
 	MAKE_STD_ZVAL(znoload);
 	ZVAL_BOOL(znoload, noload);
+
 
 	args[0] = sprinc;
 	args[1] = getThis();
@@ -326,6 +357,26 @@ PHP_METHOD(KADM5, getPrincipal)
 	zval_ptr_dtor(&ctor);
 	zval_ptr_dtor(&dummy_retval);
 	zval_ptr_dtor(&znoload);
+#else
+	zval ctor;
+	zval args[3];
+	zval dummy_retval;
+	ZVAL_STRING(&ctor, "__construct");
+	args[0] = *sprinc;
+	args[1] = *getThis();
+	ZVAL_BOOL(&args[2], noload);
+	if(call_user_function(&krb5_ce_kadm5_principal->function_table, return_value, &ctor, &dummy_retval, 3, 
+							args TSRMLS_CC) == FAILURE) {	
+		zval_dtor(&ctor);
+		zval_dtor(&dummy_retval);
+		zval_dtor(&args[2]);
+		zend_throw_exception(NULL, "Failed to instantiate KADM5Principal object", 0 TSRMLS_CC);
+		return;
+	}
+	zval_dtor(&ctor);
+	zval_dtor(&dummy_retval);
+	zval_dtor(&args[2]);
+#endif
 } /* }}} */
 
 /* {{{ proto array KADM5::getPrinicipals([string $filter])
@@ -336,7 +387,7 @@ PHP_METHOD(KADM5, getPrincipals)
 	krb5_kadm5_object *obj;
 
 	char *sexp = NULL;
-	int sexp_len;
+	strsize_t sexp_len;
 
 	char **princs;
 	int princ_count;
@@ -347,18 +398,20 @@ PHP_METHOD(KADM5, getPrincipals)
 		RETURN_FALSE;
 	}
 
-	obj = (krb5_kadm5_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	obj = KRB5_THIS_KADM;
 	retval = kadm5_get_principals(obj->handle, sexp, &princs, &princ_count);
 
 	if(retval) {
-		zend_throw_exception(NULL, (char*) krb5_get_error_message(obj->ctx, (int)retval), (int)retval TSRMLS_CC);
+		const char *errmsg = krb5_get_error_message(obj->ctx, (int)retval);
+		zend_throw_exception(NULL, errmsg, (int)retval TSRMLS_CC);
+		krb5_free_error_message(obj->ctx, errmsg);
 		return;
 	}
 
 	array_init(return_value);
 
 	for(i = 0; i < princ_count; i++) {
-		add_next_index_string(return_value, princs[i], 1);
+		_add_next_index_string(return_value, princs[i]);
 	}
 
 	kadm5_free_name_list(obj->handle, princs, princ_count);
@@ -373,35 +426,55 @@ PHP_METHOD(KADM5, createPrincipal)
 	krb5_kadm5_principal_object *principal = NULL;
 	krb5_kadm5_object *obj = NULL;
 
-	zval *dummy_retval = NULL, *func = NULL;
+
 	char *pw = NULL;
-	int pw_len = 0;
+	strsize_t pw_len = 0;
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|s", &princ, krb5_ce_kadm5_principal, &pw, &pw_len) == FAILURE) {
 		return;
 	}
 
-	principal = zend_object_store_get_object(princ TSRMLS_CC);
-	obj = zend_object_store_get_object(getThis() TSRMLS_CC);
+	if ( Z_ISNULL_P(princ) ) {
+		zend_throw_exception(NULL, "Invalid principal object", 0 TSRMLS_CC);
+		return;
+	}
 
+	principal = KRB5_KADM_PRINCIPAL(princ);
+	obj = KRB5_THIS_KADM;
+
+#if PHP_MAJOR_VERSION < 7
 	princname = zend_read_property(krb5_ce_kadm5_principal, princ, "princname",
 									sizeof("princname"),1 TSRMLS_CC);
+#else
+	princname = zend_read_property(krb5_ce_kadm5_principal, princ, "princname",
+									sizeof("princname"),1, NULL TSRMLS_CC);
+#endif
+	if ( principal->data.principal ) {
+		krb5_free_principal(obj->ctx, principal->data.principal);
+	}
 
-	if(krb5_parse_name(obj->ctx, Z_STRVAL_P(princname),&principal->data.principal)) {
+	zend_string *pnamestr = zval_get_string(princname TSRMLS_CC);
+	if(krb5_parse_name(obj->ctx, pnamestr->val, &principal->data.principal)) {
+		zend_string_release(pnamestr);
 		zend_throw_exception(NULL, "Failed to parse principal name", 0 TSRMLS_CC);
 		return;
 	}
+	zend_string_release(pnamestr);
 	principal->update_mask |= KADM5_PRINCIPAL;
+	principal->conn = obj;
+	zend_update_property(krb5_ce_kadm5_principal, princ, "connection", sizeof("connection"), getThis() TSRMLS_CC);
 
 	retval = kadm5_create_principal(obj->handle, &principal->data, principal->update_mask, pw);
 	if(retval != KADM5_OK) {
-		zend_throw_exception(NULL, (char*) krb5_get_error_message(obj->ctx, (int)retval), (int)retval TSRMLS_CC);
+		const char* errmsg =  krb5_get_error_message(obj->ctx, (int)retval);
+		zend_throw_exception(NULL, errmsg, (int)retval TSRMLS_CC);
+		krb5_free_error_message(obj->ctx, errmsg);
 		return;
 	}
 
-	/* Update principal object */
-	zend_update_property(krb5_ce_kadm5_principal, princ, "connection", sizeof("connection"), getThis() TSRMLS_CC);
 
+#if PHP_MAJOR_VERSION < 7
+	zval *dummy_retval = NULL, *func = NULL;
 	MAKE_STD_ZVAL(func);
 	ZVAL_STRING(func, "load", 1);
 	MAKE_STD_ZVAL(dummy_retval);
@@ -418,14 +491,27 @@ PHP_METHOD(KADM5, createPrincipal)
 
 	zval_ptr_dtor(&func);
 	zval_ptr_dtor(&dummy_retval);
+#else
+	zval func;
+	zval dummy_retval;
+	ZVAL_STRING(&func, "load");
+	if(call_user_function(&krb5_ce_kadm5_principal->function_table, princ, &func, &dummy_retval, 0, 
+							NULL TSRMLS_CC) == FAILURE) {	
+		zval_dtor(&func);
+		zval_dtor(&dummy_retval);
+		zend_throw_exception(NULL, "Failed to update KADM5Principal object", 0 TSRMLS_CC);
+		return;
+	}
+	zval_dtor(&func);
+	zval_dtor(&dummy_retval);
+#endif
 }
 
 /* {{{ proto KADM5Policy KADM5::getPolicy(string $policy)
 	Fetches a policy */
 PHP_METHOD(KADM5, getPolicy)
 {
-	zval *dummy_retval, *ctor;
-	zval *args[2];
+	
 
 	zval *spolicy = NULL;
 
@@ -435,6 +521,9 @@ PHP_METHOD(KADM5, getPolicy)
 
 	object_init_ex(return_value, krb5_ce_kadm5_policy);
 
+#if PHP_MAJOR_VERSION < 7
+	zval *dummy_retval, *ctor;
+	zval *args[2];
 	MAKE_STD_ZVAL(ctor);
 	ZVAL_STRING(ctor, "__construct", 1);
 
@@ -453,6 +542,23 @@ PHP_METHOD(KADM5, getPolicy)
 
 	zval_ptr_dtor(&ctor);
 	zval_ptr_dtor(&dummy_retval);
+#else
+	zval ctor;
+	zval args[2];
+	zval dummy_retval;
+	ZVAL_STRING(&ctor, "__construct");
+	args[0] = *spolicy;
+	args[1] = *getThis();
+	if(call_user_function(&krb5_ce_kadm5_policy->function_table, return_value, &ctor, &dummy_retval, 2, 
+							args TSRMLS_CC) == FAILURE) {	
+		zval_dtor(&ctor);
+		zval_dtor(&dummy_retval);
+		zend_throw_exception(NULL, "Failed to instantiate KADM5Policy object", 0 TSRMLS_CC);
+		return;
+	}
+	zval_dtor(&ctor);
+	zval_dtor(&dummy_retval);
+#endif
 } /* }}} */
 
 /* {{{ proto void KADM5::createPolicy(KADM5Policy $policy)
@@ -463,27 +569,33 @@ PHP_METHOD(KADM5, createPolicy) {
 	krb5_kadm5_policy_object *policy;
 	krb5_kadm5_object *obj;
 
-	zval *dummy_retval, *func;
+
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O", &zpolicy, krb5_ce_kadm5_policy) == FAILURE) {
 		return;
 	}
 
-	policy = zend_object_store_get_object(zpolicy TSRMLS_CC);
-	obj = zend_object_store_get_object(getThis() TSRMLS_CC);
+	policy = KRB5_KADM_POLICY(zpolicy);
+	obj = KRB5_THIS_KADM;
 
 	policy->update_mask |= KADM5_POLICY;
-
+	policy->conn = obj;
 	policy->data.policy = policy->policy;
+	zend_update_property(krb5_ce_kadm5_policy, zpolicy, "connection", sizeof("connection"), getThis() TSRMLS_CC);
+
 	retval = kadm5_create_policy(obj->handle, &policy->data, policy->update_mask);
 	if(retval != KADM5_OK) {
-		zend_throw_exception(NULL, (char*)krb5_get_error_message(obj->ctx, (int)retval), (int)retval TSRMLS_CC);
+		policy->data.policy = NULL;
+		const char* errmsg = krb5_get_error_message(obj->ctx, (int)retval);
+		zend_throw_exception(NULL, errmsg, (int)retval TSRMLS_CC);
+		krb5_free_error_message(obj->ctx, errmsg);
 		return;
 	}
 
-	/* Update principal object */
-	zend_update_property(krb5_ce_kadm5_policy, zpolicy, "connection", sizeof("connection"), getThis() TSRMLS_CC);
+	policy->data.policy = NULL;
 
+#if PHP_MAJOR_VERSION < 7
+	zval *dummy_retval, *func;
 	MAKE_STD_ZVAL(func);
 	ZVAL_STRING(func, "load", 1);
 	MAKE_STD_ZVAL(dummy_retval);
@@ -498,6 +610,20 @@ PHP_METHOD(KADM5, createPolicy) {
 
 	zval_ptr_dtor(&func);
 	zval_ptr_dtor(&dummy_retval);
+#else
+	zval func;
+	zval dummy_retval;
+	ZVAL_STRING(&func, "load");
+	if(call_user_function(&krb5_ce_kadm5_policy->function_table, zpolicy, &func, &dummy_retval, 0, 
+							NULL TSRMLS_CC) == FAILURE) {	
+		zval_dtor(&func);
+		zval_dtor(&dummy_retval);
+		zend_throw_exception(NULL, "Failed to update KADM5Policy object", 0 TSRMLS_CC);
+		return;
+	}
+	zval_dtor(&func);
+	zval_dtor(&dummy_retval);
+#endif
 } /* }}} */
 
 /* {{{ proto array KADM5::getPolicies([string $filter])
@@ -508,7 +634,7 @@ PHP_METHOD(KADM5, getPolicies)
 	krb5_kadm5_object *obj;
 
 	char *sexp = NULL;
-	int sexp_len;
+	strsize_t sexp_len;
 
 	char **policies;
 	int pol_count;
@@ -519,18 +645,20 @@ PHP_METHOD(KADM5, getPolicies)
 		RETURN_FALSE;
 	}
 
-	obj = (krb5_kadm5_object*)zend_object_store_get_object(getThis() TSRMLS_CC);
+	obj = KRB5_THIS_KADM;
 	retval = kadm5_get_policies(obj->handle, sexp, &policies, &pol_count);
 
 	if(retval) {
-		zend_throw_exception(NULL, (char*)krb5_get_error_message(obj->ctx, (int)retval), (int)retval TSRMLS_CC);
+		const char* errmsg =  krb5_get_error_message(obj->ctx, (int)retval);
+		zend_throw_exception(NULL, errmsg, (int)retval TSRMLS_CC);
+		krb5_free_error_message(obj->ctx, errmsg);
 		return;
 	}
 
 	array_init(return_value);
 
 	for(i = 0; i < pol_count; i++) {
-		add_next_index_string(return_value, policies[i], 1);
+		_add_next_index_string(return_value, policies[i]);
 	}
 
 	kadm5_free_name_list(obj->handle, policies, pol_count);

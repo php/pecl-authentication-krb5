@@ -32,6 +32,7 @@
 
 #include "config.h"
 #include "php_krb5.h"
+#include "compat.h"
 
 #include "ext/standard/info.h"
 #include "ext/standard/base64.h"
@@ -133,7 +134,13 @@ krb5_error_code php_krb5_display_error(krb5_context ctx, krb5_error_code code, c
 
 /*  Initialization functions */
 zend_object_handlers krb5_ccache_handlers;
+
+#if PHP_MAJOR_VERSION < 7
 zend_object_value php_krb5_ticket_object_new( zend_class_entry *ce TSRMLS_DC);
+#else
+zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC);
+static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC);
+#endif
 
 PHP_MINIT_FUNCTION(krb5)
 {
@@ -143,6 +150,10 @@ PHP_MINIT_FUNCTION(krb5)
 	krb5_ce_ccache = zend_register_internal_class(&krb5_ccache TSRMLS_CC);
 	krb5_ce_ccache->create_object = php_krb5_ticket_object_new;
 	memcpy(&krb5_ccache_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+#if PHP_MAJOR_VERSION >= 7
+	krb5_ccache_handlers.offset = XtOffsetOf(krb5_ccache_object, std);
+	krb5_ccache_handlers.free_obj = php_krb5_ccache_object_free;
+#endif
 
 #ifdef HAVE_KADM5
 	if(php_krb5_kadm5_register_classes(TSRMLS_C) != SUCCESS) {
@@ -219,13 +230,15 @@ PHP_MINFO_FUNCTION(krb5)
 
 /*  Constructors/Destructors */
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 static void php_krb5_ccache_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	krb5_ccache_object *ticket = (krb5_ccache_object*)obj;
 
-	OBJECT_STD_DTOR(ticket->std);
 
 	if(ticket) {
+		OBJECT_STD_DTOR(ticket->std);
+
 		krb5_cc_destroy(ticket->ctx, ticket->cc);
 		krb5_free_context(ticket->ctx);
 
@@ -236,9 +249,24 @@ static void php_krb5_ccache_object_dtor(void *obj, zend_object_handle handle TSR
 		efree(ticket);
 	}
 }
+#else
+static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC)
+{
+	krb5_ccache_object *ticket = (krb5_ccache_object*)((char *)obj - XtOffsetOf(krb5_ccache_object, std));
+	krb5_cc_destroy(ticket->ctx, ticket->cc);
+	krb5_free_context(ticket->ctx);
+
+	if(ticket->keytab) {
+		efree(ticket->keytab);
+	}
+	zend_object_std_dtor(obj);
+}
+#endif
 /* }}} */
 
+
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	zend_object_value retval;
@@ -255,13 +283,18 @@ zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	// initialize random ccache
 	if((ret = krb5_cc_new_unique(object->ctx, "MEMORY", "", &object->cc))) {
-		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Cannot open credential cache (%s)", krb5_get_error_message(object->ctx,ret), ret);
+		const char *msg = krb5_get_error_message(object->ctx,ret);
+		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Cannot open credential cache (%s)", msg, ret);
+		krb5_free_error_message(object->ctx, msg);
+		krb5_free_context(object->ctx);
+		efree(object);		
+		return retval;
 	}
 
 
 	INIT_STD_OBJECT(object->std, ce);
 #if PHP_VERSION_ID < 50399
-    zend_hash_copy(object->std.properties, &ce->default_properties,
+	zend_hash_copy(object->std.properties, &ce->default_properties,
 	        		(copy_ctor_func_t) zval_add_ref, NULL,
 					sizeof(zval*));
 #else
@@ -269,10 +302,35 @@ zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 #endif
 
 	retval.handle = zend_objects_store_put(object, php_krb5_ccache_object_dtor, NULL, NULL TSRMLS_CC);
-
 	retval.handlers = &krb5_ccache_handlers;
 	return retval;
 }
+#else
+zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
+{
+	krb5_ccache_object *object;
+	krb5_error_code ret = 0;
+
+	object = ecalloc(1, sizeof(krb5_ccache_object) + zend_object_properties_size(ce));
+
+	/* intialize context */
+	if((ret = krb5_init_context(&object->ctx))) {
+		zend_throw_exception(NULL, "Cannot initialize Kerberos5 context",0 TSRMLS_CC);
+	}
+
+	// initialize random ccache
+	if((ret = krb5_cc_new_unique(object->ctx, "MEMORY", "", &object->cc))) {
+		const char *msg = krb5_get_error_message(object->ctx,ret);
+		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Cannot open credential cache (%s)", msg, ret);
+		krb5_free_error_message(object->ctx, msg);
+	}
+
+	zend_object_std_init(&object->std, ce TSRMLS_CC);
+	object_properties_init(&object->std, ce);
+	object->std.handlers = &krb5_ccache_handlers;
+	return &object->std;
+}
+#endif
 /* }}} */
 
 /* Helper functions */
@@ -280,93 +338,78 @@ zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *cred_opts, char **in_tkt_svc, char **vfy_keytab TSRMLS_DC)
 {
 	int retval = 0;
-	zval **tmp = NULL;
-	zval *copy;
-	ALLOC_ZVAL(copy);
+	zval *tmp = NULL;
+	zend_string *str = NULL;
 
 	if (Z_TYPE_P(opts) != IS_ARRAY) {
 		return KRB5KRB_ERR_GENERIC;
 	}
 
 	/* forwardable */
-	if (zend_hash_find(HASH_OF(opts), "forwardable", sizeof("forwardable"), (void**) &tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_boolean(copy);
-		krb5_get_init_creds_opt_set_forwardable(cred_opts, Z_LVAL_P(copy));
-		zval_dtor(copy);
+	tmp = zend_compat_hash_find(HASH_OF(opts), "forwardable", sizeof("forwardable"));
+	if (tmp != NULL) {
+		krb5_get_init_creds_opt_set_forwardable(cred_opts, zval_is_true(tmp));
 	}
 
 
 	/* proxiable */
-	if (zend_hash_find(HASH_OF(opts), "proxiable", sizeof("proxiable"), (void**) &tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_boolean(copy);
-		krb5_get_init_creds_opt_set_proxiable(cred_opts, Z_LVAL_P(copy));
-		zval_dtor(copy);
+	tmp = zend_compat_hash_find(HASH_OF(opts), "proxiable", sizeof("proxiable"));
+	if (tmp != NULL) {
+		krb5_get_init_creds_opt_set_proxiable(cred_opts, zval_is_true(tmp));
 	}
 
 #ifdef HAVE_KRB5_INIT_CREDS_CANONICALIZE
 	/* canonicalize */
-	if (zend_hash_find(HASH_OF(opts), "canonicalize", sizeof("canonicalize"), (void**) &tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_boolean(copy);
-		krb5_get_init_creds_opt_set_canonicalize(cred_opts, Z_LVAL_P(copy));
-		zval_dtor(copy);
+	tmp = zend_compat_hash_find(HASH_OF(opts), "canonicalize", sizeof("canonicalize"));
+	if (tmp != NULL) {
+		krb5_get_init_creds_opt_set_canonicalize(cred_opts, zval_is_true(tmp));
 	}
 #endif /* HAVE_KRB5_INIT_CREDS_CANONICALIZE */
 
 	/* tkt_life */
-	if (zend_hash_find(HASH_OF(opts), "tkt_life", sizeof("tkt_life"), (void**) &tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_long(copy);
-		krb5_get_init_creds_opt_set_tkt_life(cred_opts, Z_LVAL_P(copy));
-		zval_dtor(copy);
+	tmp = zend_compat_hash_find(HASH_OF(opts), "tkt_life", sizeof("tkt_life"));
+	if (tmp != NULL) {
+		krb5_get_init_creds_opt_set_tkt_life(cred_opts, zval_get_long(tmp TSRMLS_CC));
 	}
 
 	/* renew_life */
-	if (zend_hash_find(HASH_OF(opts), "renew_life", sizeof("renew_life"), (void**) &tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_long(copy);
-		krb5_get_init_creds_opt_set_renew_life(cred_opts, Z_LVAL_P(copy));
-		zval_dtor(copy);
+	tmp = zend_compat_hash_find(HASH_OF(opts), "renew_life", sizeof("renew_life"));
+	if (tmp != NULL) {
+		krb5_get_init_creds_opt_set_renew_life(cred_opts, zval_get_long(tmp TSRMLS_CC));
 	}
 	
 	/* service_name (krb5 arg "in_tkt_service") */
-	if (zend_hash_find(HASH_OF(opts), "service_name", sizeof("service_name"), (void**) &tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_string(copy);
-
-		if ((*in_tkt_svc = emalloc(1+Z_STRLEN_P(copy)))) {
-			strncpy(*in_tkt_svc, Z_STRVAL_P(copy), Z_STRLEN_P(copy));
-			(*in_tkt_svc)[Z_STRLEN_P(copy)] = '\0';
+	tmp = zend_compat_hash_find(HASH_OF(opts), "service_name", sizeof("service_name"));
+	if (tmp != NULL) {
+		str = zval_get_string(tmp TSRMLS_CC);
+		if ((*in_tkt_svc = emalloc(1+str->len))) {
+			strncpy(*in_tkt_svc, str->val, str->len);
+			(*in_tkt_svc)[str->len] = '\0';
 		}
 
-		zval_dtor(copy);
+		zend_string_release(str);
 	}
 
 	/* verification keytab name */
-	if (zend_hash_find(HASH_OF(opts), "verify_keytab", sizeof("verify_keytab"), (void**)&tmp) == SUCCESS) {
-		MAKE_COPY_ZVAL(tmp, copy);
-		convert_to_string(copy);
-
-		if ((*vfy_keytab = emalloc(1+Z_STRLEN_P(copy)))) {
-			strncpy(*vfy_keytab,Z_STRVAL_P(copy),Z_STRLEN_P(copy));
-			(*vfy_keytab)[Z_STRLEN_P(copy)] = '\0';
+	tmp = zend_compat_hash_find(HASH_OF(opts), "verify_keytab", sizeof("verify_keytab"));
+	if (tmp != NULL) {
+		str = zval_get_string(tmp TSRMLS_CC);
+		if ((*vfy_keytab = emalloc(1+str->len))) {
+			strncpy(*vfy_keytab, str->val, str->len);
+			(*vfy_keytab)[str->len] = '\0';
 		}
 
-		zval_dtor(copy);
+		zend_string_release(str);
 	}
 
-	FREE_ZVAL(copy);
 	return retval;
 } /* }}} */
 
 /* {{{ */
 krb5_error_code php_krb5_display_error(krb5_context ctx, krb5_error_code code, char* str TSRMLS_DC) {
 	const char *errstr = krb5_get_error_message(ctx,code);
-
 	zend_throw_exception_ex(NULL, 0 TSRMLS_CC, str, errstr);
-
+	krb5_free_error_message(ctx, errstr);
 	return code;
 }
 /* }}} */
@@ -479,12 +522,11 @@ static krb5_error_code php_krb5_get_tgt_expire(krb5_ccache_object *ccache, long 
 	if (have_princ) krb5_free_principal(ccache->ctx, princ);
 	if (have_in_cred) krb5_free_principal(ccache->ctx, in_cred.server);
 
-
-
 	if (have_credptr) {
 		krb5_free_cred_contents(ccache->ctx, credptr);
 		*endtime = credptr->times.endtime;
 		*renew_until = credptr->times.renew_till;
+		free(credptr);
 	}
 
 	if (errstr != NULL) {
@@ -579,8 +621,7 @@ static krb5_error_code php_krb5_verify_tgt(krb5_ccache_object *ccache, krb5_cred
    Gets the name/identifier of this credential cache */
 PHP_METHOD(KRB5CCache, getName)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
-
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	const char *tmpname = krb5_cc_get_name(ccache->ctx, ccache->cc);
 	const char *tmptype = krb5_cc_get_type(ccache->ctx, ccache->cc);
 	char *name = NULL;
@@ -595,8 +636,7 @@ PHP_METHOD(KRB5CCache, getName)
 	strcat(name, tmptype);
 	strcat(name, ":");
 	strcat(name, tmpname);
-
-	RETVAL_STRING(name, 1);
+	_RETVAL_STRING(name);
 	efree(name);
 }
 /* }}} */
@@ -605,9 +645,9 @@ PHP_METHOD(KRB5CCache, getName)
    Copies the contents of the credential cache given by $dest to this credential cache */
 PHP_METHOD(KRB5CCache, open)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	char *sccname = NULL;
-	size_t sccname_len = 0;
+	strsize_t sccname_len = 0;
 	krb5_error_code retval = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &sccname, &sccname_len) == FAILURE) {
@@ -637,9 +677,9 @@ PHP_METHOD(KRB5CCache, open)
    Copies the contents of this credential cache to the credential cache given by $dest */
 PHP_METHOD(KRB5CCache, save)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	char *sccname = NULL;
-	size_t sccname_len = 0;
+	strsize_t sccname_len = 0;
 	krb5_error_code retval = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &sccname, &sccname_len) == FAILURE) {
@@ -668,14 +708,14 @@ PHP_METHOD(KRB5CCache, save)
    Gets a TGT for the given principal using the given credentials */
 PHP_METHOD(KRB5CCache, initPassword)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	char *errstr = "";
 
 	char *sprinc = NULL;
-	int sprinc_len;
+	strsize_t sprinc_len = 0;
 	char *spass = NULL;
-	int spass_len;
+	strsize_t spass_len = 0;
 	zval *opts = NULL;
 
 	krb5_principal princ;
@@ -702,7 +742,7 @@ PHP_METHOD(KRB5CCache, initPassword)
 	if ((retval = krb5_parse_name(ccache->ctx, sprinc, &princ))) {
 		errstr = "Cannot parse Kerberos principal (%s)";
 		break;
-		}
+	}
 	have_princ = 1;
 
 #ifdef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
@@ -769,14 +809,14 @@ PHP_METHOD(KRB5CCache, initPassword)
    Gets a TGT for the given principal using the credentials in the given keytab */
 PHP_METHOD(KRB5CCache, initKeytab)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	char *errstr = "";
 
 	char *sprinc = NULL;
-	int sprinc_len;
+	strsize_t sprinc_len = 0;
 	char *skeytab = NULL;
-	int skeytab_len;
+	strsize_t skeytab_len = 0;
 	zval *opts = NULL;
 
 	krb5_principal princ;
@@ -893,7 +933,7 @@ PHP_METHOD(KRB5CCache, initKeytab)
    Returns name of primary principal (client) associated with cache */
 PHP_METHOD(KRB5CCache, getPrincipal)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	krb5_principal princ;
 	char *princname = NULL;
@@ -915,18 +955,17 @@ PHP_METHOD(KRB5CCache, getPrincipal)
 		RETURN_EMPTY_STRING();
 	}
 
-	RETVAL_STRING(princname, 1);
-
-		krb5_free_principal(ccache->ctx,princ);
-	free(princname);
-	}
+	_RETVAL_STRING(princname);
+	krb5_free_unparsed_name(ccache->ctx,princname);
+	krb5_free_principal(ccache->ctx,princ);
+}
 /* }}} */
 
 /* {{{ proto string KRB5CCache::getRealm( )
    Returns name of realm for primary principal */
 PHP_METHOD(KRB5CCache, getRealm)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	krb5_principal princ;
 	char *realm;
@@ -948,8 +987,7 @@ PHP_METHOD(KRB5CCache, getRealm)
 		RETURN_EMPTY_STRING();
 	}
 
-	RETVAL_STRING(realm, 1);
-
+	_RETVAL_STRING(realm);
 	krb5_free_principal(ccache->ctx,princ);
 }
 /* }}} */
@@ -958,7 +996,7 @@ PHP_METHOD(KRB5CCache, getRealm)
    Return array with primary TGT's endtime and renew_until times in it */
 PHP_METHOD(KRB5CCache, getLifetime)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	long endtime, renew_until;
 
@@ -983,7 +1021,7 @@ PHP_METHOD(KRB5CCache, getLifetime)
    Fetches all principal names for which tickets are available in this cache */
 PHP_METHOD(KRB5CCache, getEntries)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	char *errstr = "";
 	krb5_cc_cursor cursor;
@@ -1016,8 +1054,8 @@ PHP_METHOD(KRB5CCache, getEntries)
 				errstr = "Failed to unparse principal name (%s)";
 				break;
 			}
-			add_next_index_string(return_value, princname, 1);
-			free(princname);
+			_add_next_index_string(return_value, princname);
+			krb5_free_unparsed_name(ccache->ctx, princname);
 		}
 		krb5_free_cred_contents(ccache->ctx, &creds);
 		have_creds = 0;
@@ -1040,11 +1078,11 @@ PHP_METHOD(KRB5CCache, getEntries)
    Checks whether the primary TGT in the cache is still valid and will remain valid for the given number of seconds */
 PHP_METHOD(KRB5CCache, isValid)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	long endtime, renew_until, then;
 	krb5_timestamp now;
-	long need = 0;
+	zend_long need = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|l", &need) == FAILURE) {
 		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
@@ -1073,14 +1111,14 @@ PHP_METHOD(KRB5CCache, isValid)
    Fetches principals and (readable) attributes of ticket(s) in cache */
 PHP_METHOD(KRB5CCache, getTktAttrs)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	char *errstr = "";
 	krb5_cc_cursor cursor;
 	int have_cursor = 0;
 	krb5_creds creds;
 	int have_creds = 0;
-	zval *tktinfo = NULL;
+	_DECLARE_ZVAL(tktinfo);
 	char *princname;
 	long princ_len;
 	long tktflags;
@@ -1098,7 +1136,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 	char straddr[INET6_ADDRSTRLEN];
 #endif
 	char *prefix = NULL;
-	long pfx_len = 0;
+	strsize_t pfx_len = 0;
 
 	array_init(return_value);
 
@@ -1119,7 +1157,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 	while (krb5_cc_next_cred(ccache->ctx,ccache->cc,&cursor,&creds) == 0) {
 		have_creds = 1;
 		if (creds.server) {
-			MAKE_STD_ZVAL(tktinfo);
+			_ALLOC_INIT_ZVAL(tktinfo);
 			array_init(tktinfo);
 
 			princname = NULL;
@@ -1136,16 +1174,17 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 				continue;
 			}
 
-			add_assoc_string(tktinfo, "server", (princname?princname:""), 1);
-			free(princname);
+			_add_assoc_string(tktinfo, "server", (princname?princname:""));
+
+			krb5_free_unparsed_name(ccache->ctx, princname);
 
 			princname = NULL;
 			if((retval = krb5_unparse_name(ccache->ctx, creds.client, &princname))) {
 				errstr = "Failed to unparse client principal name (%s)";
 				break;
 			}
-			add_assoc_string(tktinfo, "client", (princname?princname:""), 1);
-			free(princname);
+			_add_assoc_string(tktinfo, "client", (princname?princname:""));
+			krb5_free_unparsed_name(ccache->ctx, princname);
 
 			add_assoc_long(tktinfo, "authtime", creds.times.authtime);
 			add_assoc_long(tktinfo, "starttime", creds.times.starttime);
@@ -1176,7 +1215,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 			if ((tktflags & TKT_FLG_ANONYMOUS) && (p < q)) *(p++) = 'a';
 			*p = '\0';
 
-			add_assoc_string(tktinfo, "flags", strflags, 1);
+			_add_assoc_string(tktinfo, "flags", strflags);
 
 #ifdef HAVE_KRB5_HEIMDAL
 			encstr = NULL;
@@ -1189,7 +1228,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 				if (!encstr) encstr = malloc(ENCSTRMAX);
 				snprintf(encstr, ENCSTRMAX, "enctype %d", creds.keyblock.enctype);
 			}
-			add_assoc_string(tktinfo, "skey_enc", encstr, 1);
+			_add_assoc_string(tktinfo, "skey_enc", encstr);
 			free(encstr);
 
 			if ((retval = krb5_decode_ticket(&creds.ticket,&tkt))) {
@@ -1207,12 +1246,12 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 					if (!encstr) encstr = malloc(ENCSTRMAX);
 					snprintf(encstr, ENCSTRMAX, "enctype %d", tkt->enc_part.enctype);
 				}
-				add_assoc_string(tktinfo, "tkt_enc", encstr, 1);
+				_add_assoc_string(tktinfo, "tkt_enc", encstr);
 				free(encstr);
 				krb5_free_ticket(ccache->ctx, tkt);
 			}
 
-			MAKE_STD_ZVAL(addrlist);
+			_ALLOC_INIT_ZVAL(addrlist);
 			array_init(addrlist);
 			tkt_addrs = creds.addresses;
 			if (tkt_addrs) while((tktaddr = *(tkt_addrs++))) {
@@ -1220,20 +1259,20 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 					memcpy(&(ipaddr.s_addr), tktaddr->contents, tktaddr->length);
 
 #ifndef INET6_ADDRSTRLEN
-					add_next_index_string(addrlist, inet_ntoa(ipaddr), 1);
+					_add_next_index_string(addrlist, inet_ntoa(ipaddr));
 				}
 #if 0
  { match curlies
 #endif
 #else /* ! INET6_ADDRSTRLEN */
 					if (inet_ntop(AF_INET, &ipaddr, straddr, sizeof(straddr))) {
-						add_next_index_string(addrlist, straddr, 1);
+						_add_next_index_string(addrlist, straddr);
 					}
 				}
 				if ((tktaddr->addrtype == ADDRTYPE_INET6) && (tktaddr->length >= 4)) {
 					memcpy(ip6addr.s6_addr, tktaddr->contents, tktaddr->length);
 					if (inet_ntop(AF_INET6, &ipaddr, straddr, sizeof(straddr))) {
-						add_next_index_string(addrlist, straddr, 1);
+						_add_next_index_string(addrlist, straddr);
 					}
 				}
 #endif /* INET6_ADDRSTRLEN */
@@ -1264,7 +1303,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
    Renew default TGT and purge other tickets from cache, return FALSE on failure  */
 PHP_METHOD(KRB5CCache, renew)
 {
-	krb5_ccache_object *ccache = zend_object_store_get_object(getThis() TSRMLS_CC);
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
 	krb5_error_code retval = 0;
 	char *errstr = "";
 	long endtime, renew_until;

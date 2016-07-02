@@ -22,6 +22,7 @@
 
 #include "php_krb5.h"
 #include "php_krb5_gssapi.h"
+#include "compat.h"
 #include "SAPI.h"
 #include "ext/standard/base64.h"
 #include <math.h>
@@ -33,14 +34,25 @@ zend_object_handlers krb5_negotiate_auth_handlers;
 
 zend_class_entry *krb5_ce_negotiate_auth;
 typedef struct _krb5_negotiate_auth_object {
+#if PHP_MAJOR_VERSION < 7
 	zend_object std;
+#endif
 	gss_name_t servname;
 	gss_name_t authed_user;
 	gss_cred_id_t delegated;
+#if PHP_MAJOR_VERSION >= 7
+	zend_object std;
+#endif
 } krb5_negotiate_auth_object;
 
+
+#if PHP_MAJOR_VERSION < 7
 static void php_krb5_negotiate_auth_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC);
 zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC);
+#else
+static void php_krb5_negotiate_auth_object_free(zend_object *obj TSRMLS_DC);
+zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC);
+#endif
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth_none, 0, 0, 0)
 ZEND_END_ARG_INFO()
@@ -69,39 +81,128 @@ static zend_function_entry krb5_negotiate_auth_functions[] = {
 
 /** Registration **/
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 static void php_krb5_negotiate_auth_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)obj;
+
 	OBJECT_STD_DTOR(object->std);
 
+	if ( object->servname ) {
+		free(object->servname);
+	}
 	efree(object);
-} /* }}} */
+} 
+#else
+static void php_krb5_negotiate_auth_object_free(zend_object *obj TSRMLS_DC)
+{
+	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)((char *)obj - XtOffsetOf(krb5_negotiate_auth_object, std));
+
+	if ( object->servname ) {
+		free(object->servname);
+	}
+	zend_object_std_dtor(obj);
+} 
+#endif
+/* }}} */
+
+
+static void setup_negotiate_auth(krb5_negotiate_auth_object *object TSRMLS_DC) {
+	object->authed_user = GSS_C_NO_NAME;
+	object->servname = GSS_C_NO_NAME;
+	object->delegated = GSS_C_NO_CREDENTIAL;
+}
 
 /* {{{ */
+#if PHP_MAJOR_VERSION < 7
 zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	zend_object_value retval;
 	krb5_negotiate_auth_object *object;
-	OM_uint32 status, minor_status;
-
 	object = emalloc(sizeof(krb5_negotiate_auth_object));
 
-	gss_buffer_desc nametmp;
+	setup_negotiate_auth(object TSRMLS_CC);
 
-	object->authed_user = GSS_C_NO_NAME;
-	object->servname = GSS_C_NO_NAME;
-	object->delegated = GSS_C_NO_CREDENTIAL;
+	INIT_STD_OBJECT(object->std, ce);
+
+#if PHP_VERSION_ID < 50399
+	zend_hash_copy(object->std.properties, &ce->default_properties,
+	        		(copy_ctor_func_t) zval_add_ref, NULL,
+					sizeof(zval*));
+#else
+	object_properties_init(&(object->std), ce);
+#endif
+
+	retval.handle = zend_objects_store_put(object, php_krb5_negotiate_auth_object_dtor, NULL, NULL TSRMLS_CC);
+
+	retval.handlers = &krb5_negotiate_auth_handlers;
+	return retval;
+} 
+#else
+zend_object *php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC)
+{
+	krb5_negotiate_auth_object *object;
+	object = ecalloc(1, sizeof(krb5_negotiate_auth_object) + zend_object_properties_size(ce));
+
+	setup_negotiate_auth(object TSRMLS_CC);
+
+	zend_object_std_init(&object->std, ce TSRMLS_CC);
+	object_properties_init(&object->std, ce);
+	object->std.handlers = &krb5_negotiate_auth_handlers;
+	return &object->std;
+}
+#endif
+/* }}} */
+
+/* {{{ */
+int php_krb5_negotiate_auth_register_classes(TSRMLS_D) {
+	zend_class_entry negotiate_auth;
+
+	INIT_CLASS_ENTRY(negotiate_auth, "KRB5NegotiateAuth", krb5_negotiate_auth_functions);
+	krb5_ce_negotiate_auth = zend_register_internal_class(&negotiate_auth TSRMLS_CC);
+	krb5_ce_negotiate_auth->create_object = php_krb5_negotiate_auth_object_new;
+	memcpy(&krb5_negotiate_auth_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
+#if PHP_MAJOR_VERSION >= 7
+	krb5_negotiate_auth_handlers.offset = XtOffsetOf(krb5_negotiate_auth_object, std);
+	krb5_negotiate_auth_handlers.free_obj = php_krb5_negotiate_auth_object_free;
+#endif
+
+	return SUCCESS;
+} 
+/* }}} */
+
+
+/** KRB5NegotiateAuth Methods **/
+/* {{{ proto bool KRB5NegotiateAuth::__construct( string $keytab )
+   Initialize KRB5NegotitateAuth object with a keytab to use  */
+PHP_METHOD(KRB5NegotiateAuth, __construct)
+{
+	gss_buffer_desc nametmp;
+	OM_uint32 status, minor_status;
+	krb5_negotiate_auth_object *object;
+	char *keytab;
+	strsize_t keytab_len = 0;
+
+	KRB5_SET_ERROR_HANDLING(EH_THROW);
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &keytab, &keytab_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
+
+	object = KRB5_THIS_NEGOTIATE_AUTH;
 
 	/* lookup server's FQDN */
-	zval **server, **server_name;
-
-	if(zend_hash_find(&EG(symbol_table), "_SERVER", sizeof("_SERVER"), (void**) &server) != FAILURE) {
-		if(zend_hash_find(Z_ARRVAL_PP(server), "SERVER_NAME", sizeof("SERVER_NAME"), (void**) &server_name) != FAILURE) {
-			char *hostname = Z_STRVAL_PP(server_name);
+	zval *server, *server_name;
+	server = zend_compat_hash_find(&EG(symbol_table), "_SERVER", sizeof("_SERVER"));
+	if ( server != NULL ) {
+		server_name = zend_compat_hash_find(HASH_OF(server), "SERVER_NAME", sizeof("SERVER_NAME"));
+		if ( server_name != NULL ) {
+			char *hostname = Z_STRVAL_P(server_name);
 			struct hostent* host = gethostbyname(hostname);
 
 			if(!host) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Failed to get server FQDN - Lookup failure");
+				zend_throw_exception(NULL, "Failed to get server FQDN - Lookup failure", 0 TSRMLS_CC);
+				return;
 			}
 
 			nametmp.length = strlen(host->h_name) + 6;
@@ -113,57 +214,16 @@ zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS
 
 			if(GSS_ERROR(status)) {
 				php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
-				php_error_docref(NULL TSRMLS_CC, E_ERROR, "Could not parse server name");
+				zend_throw_exception(NULL, "Could not parse server name", 0 TSRMLS_CC);
+				return;
 			}
 
 			efree(nametmp.value);
 		} else {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Failed to get server FQDN");
+			zend_throw_exception(NULL, "Failed to get server FQDN", 0 TSRMLS_CC);
+			return;
 		}
 	}
-
-	INIT_STD_OBJECT(object->std, ce);
-
-#if PHP_VERSION_ID < 50399
-    zend_hash_copy(object->std.properties, &ce->default_properties,
-	        		(copy_ctor_func_t) zval_add_ref, NULL,
-					sizeof(zval*));
-#else
-	object_properties_init(&(object->std), ce);
-#endif
-
-	retval.handle = zend_objects_store_put(object, php_krb5_negotiate_auth_object_dtor, NULL, NULL TSRMLS_CC);
-
-	retval.handlers = &krb5_negotiate_auth_handlers;
-	return retval;
-} /* }}} */
-
-/* {{{ */
-int php_krb5_negotiate_auth_register_classes(TSRMLS_D) {
-	zend_class_entry negotiate_auth;
-
-	INIT_CLASS_ENTRY(negotiate_auth, "KRB5NegotiateAuth", krb5_negotiate_auth_functions);
-	krb5_ce_negotiate_auth = zend_register_internal_class(&negotiate_auth TSRMLS_CC);
-	krb5_ce_negotiate_auth->create_object = php_krb5_negotiate_auth_object_new;
-	memcpy(&krb5_negotiate_auth_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-
-	return SUCCESS;
-} /* }}} */
-
-
-/** KRB5NegotiateAuth Methods **/
-/* {{{ proto bool KRB5NegotiateAuth::__construct( string $keytab )
-   Initialize KRB5NegotitateAuth object with a keytab to use  */
-PHP_METHOD(KRB5NegotiateAuth, __construct)
-{
-	char *keytab;
-	int keytab_len;
-
-	KRB5_SET_ERROR_HANDLING(EH_THROW);
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &keytab, &keytab_len) == FAILURE) {
-		RETURN_FALSE;
-	}
-	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
 	if(krb5_gss_register_acceptor_identity(keytab) != GSS_S_COMPLETE) {
 		zend_throw_exception(NULL, "Failed to use credential cache", 0 TSRMLS_CC);
@@ -175,15 +235,14 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
    Performs Negotiate/GSSAPI authentication  */
 PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 {
-	char *token = NULL;
-	int token_len = 0;
+	zend_string *token = NULL;
 	krb5_negotiate_auth_object *object;
 
 	OM_uint32 status = 0;
 	OM_uint32 minor_status = 0;
 	OM_uint32 flags;
 	gss_ctx_id_t gss_context = GSS_C_NO_CONTEXT;
-	gss_buffer_t input_token = GSS_C_NO_BUFFER;
+	gss_buffer_desc input_token;
 	gss_buffer_desc output_token;
 	gss_cred_id_t server_creds = GSS_C_NO_CREDENTIAL;
 
@@ -191,7 +250,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 		RETURN_FALSE;
 	}
 
-	object = (krb5_negotiate_auth_object*) zend_object_store_get_object(getThis() TSRMLS_CC);
+	object = KRB5_THIS_NEGOTIATE_AUTH;
 
 	if(!object) {
 		RETURN_FALSE;
@@ -199,66 +258,33 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 
 
 	/* get authentication data */
-#if 1
-	zval **auth_header = NULL;
+	zval *auth_header = NULL;
+
+#if PHP_MAJOR_VERSION < 7
+	HashTable* server_vars = PG(http_globals)[TRACK_VARS_SERVER] != NULL ? PG(http_globals)[TRACK_VARS_SERVER]->value.ht : NULL;
+#else
+	HashTable* server_vars = Z_ARRVAL(PG(http_globals)[TRACK_VARS_SERVER]);
+#endif
  
+	if(server_vars && (auth_header = zend_compat_hash_find(server_vars, "HTTP_AUTHORIZATION", sizeof("HTTP_AUTHORIZATION"))) != NULL) {
  
-	if(PG(http_globals)[TRACK_VARS_SERVER] && zend_hash_find(PG(http_globals)[TRACK_VARS_SERVER]->value.ht, "HTTP_AUTHORIZATION", sizeof("HTTP_AUTHORIZATION"), (void **) &auth_header) != FAILURE) {
- 
-		if(!strncasecmp(Z_STRVAL_PP(auth_header), "negotiate", 9) == 0) {
+		if(!strncasecmp(Z_STRVAL_P(auth_header), "negotiate", 9) == 0) {
  			// user agent did not provide negotiate authentication data
  			RETURN_FALSE;
  		}
  
-		if(Z_STRLEN_PP(auth_header) < 11) {
+		if(Z_STRLEN_P(auth_header) < 11) {
  			// user agent gave negotiate header but no data
  			zend_throw_exception(NULL, "Invalid negotiate authentication data given", 0 TSRMLS_CC);
  			return;
  		}
- 
- #if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION > 1) || (PHP_MAJOR_VERSION > 5)
-		token = (char*) php_base64_decode_ex((unsigned char*) Z_STRVAL_PP(auth_header)+10, Z_STRLEN_PP(auth_header) - 10, &token_len, 1);
- #else
-		token = (char*) php_base64_decode((unsigned char*) Z_STRVAL_PP(auth_header)+10, Z_STRLEN_PP(auth_header) - 10, &token_len);
- #endif
+#if PHP_MAJOR_VERSION < 7
+		int len = 0;
+		char *str = (char*) php_base64_decode_ex((unsigned char*) Z_STRVAL_P(auth_header)+10, Z_STRLEN_P(auth_header) - 10, &len, 1);
+		token = zend_string_init(str, len, 0);
+		efree(str);
 #else
-	char *auth_header = NULL;
-	int auth_header_len  = 0;
-
-	zend_llist* header_list = &SG(sapi_headers).headers;
-
-	zend_llist_position iter = header_list->head;
-
-	sapi_header_struct *cur_header = zend_llist_get_first_ex(header_list, &iter);
-
-	do {
-		if(strncasecmp(cur_header->header, "Authorization:", 14) == 0) {
-			php_printf("Found auth header: %s", cur_header->header);	
-			break;
-		}
-
-		php_printf("header: %s", cur_header->header);
-		cur_header = zend_llist_get_next_ex(header_list,&iter);
-	} while(cur_header);
-
-
-	if(auth_header) {
-		if(!strncasecmp(auth_header, "negotiate", 9) == 0) {
-			// user agent did not provide negotiate authentication data
-			RETURN_FALSE;
-		}
-
-		if(auth_header_len < 11) {
-			// user agent gave negotiate header but no data
-			zend_throw_exception(NULL, "Invalid negotiate authentication data given", 0 TSRMLS_CC);
-			return;
-		}
-
-#if (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION > 1) || (PHP_MAJOR_VERSION > 5)
-		token = (char*) php_base64_decode_ex((unsigned char*) auth_header+10, auth_header_len - 10, &token_len, 1);
-#else
-		token = (char*) php_base64_decode((unsigned char*) auth_header+10, auth_header_len - 10, &token_len);
-#endif
+		token = php_base64_decode_ex((unsigned char*) Z_STRVAL_P(auth_header)+10, Z_STRLEN_P(auth_header) - 10, 1);
 #endif
 	} else {
 		// No authentication data given by the user agent
@@ -286,21 +312,20 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 			NULL);
 
 	if(GSS_ERROR(status)) {
-		efree(token);
+		zend_string_release(token);
 		php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
 		zend_throw_exception(NULL, "Error while obtaining server credentials", status TSRMLS_CC);
 		RETURN_FALSE;
 	}
 	minor_status = 0;
 
-	input_token = emalloc(sizeof(gss_buffer_desc));
-	input_token->length = token_len;
-	input_token->value = token;
+	input_token.length = token->len;
+	input_token.value = token->val;
 
 	status = gss_accept_sec_context(   &minor_status,
                                        &gss_context,
                                        server_creds,
-                                       input_token,
+                                       &input_token,
                                        GSS_C_NO_CHANNEL_BINDINGS,
                                        &object->authed_user,
                                        NULL,
@@ -314,8 +339,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 		object->delegated = GSS_C_NO_CREDENTIAL;
 	}
 
-	efree(input_token->value);
-	efree(input_token);
+	zend_string_release(token);
 
 	if(GSS_ERROR(status)) {
 		php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
@@ -329,16 +353,23 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 
 	if(output_token.length > 0) {
 
-		int encoded_len = 0;
-		char *encoded = (char*) php_base64_encode(output_token.value, output_token.length, &encoded_len);
+#if PHP_MAJOR_VERSION < 7
+		int len = 0;
+		char *str = (char*) php_base64_encode(output_token.value, output_token.length, &len);
+		zend_string *encoded = zend_string_init(str, len, 0);
+		efree(str);
+#else
+		zend_string *encoded = php_base64_encode(output_token.value, output_token.length);
+#endif
 
 		sapi_header_line ctr = {0};
 
-		ctr.line = emalloc(sizeof("WWW-Authenticate: ")+encoded_len);
+		ctr.line = emalloc(sizeof("WWW-Authenticate: ")+encoded->len);
 		strcpy(ctr.line, "WWW-Authenticate: ");
-		strcpy(ctr.line + strlen("WWW-Authenticate: "), (char*) encoded);
+		strcpy(ctr.line + strlen("WWW-Authenticate: "), encoded->val);
 		ctr.response_code = 200;
 		sapi_header_op(SAPI_HEADER_ADD, &ctr TSRMLS_CC);
+		zend_string_release(encoded);
 
 		efree(ctr.line);
 		gss_release_buffer(&minor_status, &output_token);
@@ -356,7 +387,7 @@ PHP_METHOD(KRB5NegotiateAuth, getAuthenticatedUser)
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
 	}
-	object = (krb5_negotiate_auth_object*) zend_object_store_get_object(getThis() TSRMLS_CC);
+	object = KRB5_THIS_NEGOTIATE_AUTH;
 
 	if(!object || !object->authed_user || object->authed_user == GSS_C_NO_NAME) {
 		RETURN_FALSE;
@@ -370,7 +401,7 @@ PHP_METHOD(KRB5NegotiateAuth, getAuthenticatedUser)
 		RETURN_FALSE;
 	}
 
-	ZVAL_STRINGL(return_value, username_tmp.value, username_tmp.length, 1);
+	_ZVAL_STRINGL(return_value, username_tmp.value, username_tmp.length);
 	gss_release_buffer(&minor_status, &username_tmp);
 } /* }}} */
 
@@ -385,7 +416,7 @@ PHP_METHOD(KRB5NegotiateAuth, getDelegatedCredentials)
 	krb5_error_code retval = 0;
 	krb5_principal princ;
 
-	object = (krb5_negotiate_auth_object*) zend_object_store_get_object(getThis() TSRMLS_CC);
+	object = KRB5_THIS_NEGOTIATE_AUTH;
 
 	if(object->delegated == GSS_C_NO_CREDENTIAL) {
 		zend_throw_exception(NULL, "No delegated credentials available", 0 TSRMLS_CC);
@@ -396,7 +427,7 @@ PHP_METHOD(KRB5NegotiateAuth, getDelegatedCredentials)
 		return;
 	}
 
-	ticket = (krb5_ccache_object*) zend_object_store_get_object(zticket TSRMLS_CC);
+	ticket = KRB5_CCACHE(zticket);
 	if(!ticket) {
 		zend_throw_exception(NULL, "Invalid KRB5CCache object given", 0 TSRMLS_CC);
 		return;

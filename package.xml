@@ -22,10 +22,10 @@ Documentation:
   <email>mbechler@eenterphace.org</email>
   <active>yes</active>
  </lead>
- <date>2014-03-01</date>
- <time>17:28:19</time>
+ <date>2016-07-02</date>
+ <time>16:33:19</time>
  <version>
-  <release>1.0.0</release>
+  <release>1.1.0</release>
   <api>0.1.0</api>
  </version>
  <stability>
@@ -33,10 +33,12 @@ Documentation:
   <api>stable</api>
  </stability>
  <license uri="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
- <notes>- [CLEANUP] Remove bundled kadmin headers, drop support for mit-krb5 &lt;1.8
-- [FEATURE] Support use of the krb5-config tool to determine library paths
-- [CLEANUP] Remove KRB5CCache-&gt;setConfig method as this is no longer supported by libraries
-- [BUG] Fix null-deref in isValid for uninitialized KRB5CCache 
+ <notes>- [FEATURE] PHP7 compatibility
+ - [FEATURE] Support getting/setting TL_DATA in KADM
+ - [BUG] Fix GSSAPI->acquireCredentials behaviour, 
+    now defaults to GSS_C_INITIATE if only a ccache is available
+    eagerly initialize credentials when no principal is specified (use ccache default principal)
+ - [BUG] Fix a couple of memory leaks, add a few more sanity checks
 </notes>
  <contents>
   <dir name="/">
@@ -49,11 +51,13 @@ Documentation:
    <file role="src" name="php_krb5.h" />
    <file role="src" name="php_krb5_kadm.h" />
    <file role="src" name="php_krb5_gssapi.h" />
+   <file role="src" name="compat.h" />
    <file role="src" name="krb5.c" />
    <file role="src" name="gssapi.c" />
    <file role="src" name="kadm.c" />
    <file role="src" name="kadm5_policy.c" />
    <file role="src" name="kadm5_principal.c" />
+   <file role="src" name="kadm5_tldata.c" />
    <file role="src" name="negotiate_auth.c" />
 
    <dir name="examples">
@@ -64,6 +68,9 @@ Documentation:
      <file role="doc" name="ex4.php"/>
      <file role="doc" name="ex5.php"/>
      <file role="doc" name="ex6.php"/>
+     <file role="doc" name="ex7.php"/>
+     <file role="doc" name="ex8.php"/>
+     <file role="doc" name="ex9.php"/>
     </dir>
     <file role="doc" name="spnego.php"/>
    </dir>

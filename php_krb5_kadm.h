@@ -37,11 +37,15 @@
 	zend_class_entry *krb5_ce_kadm5;
 
 	typedef struct _krb5_kadm5_object {
+#if PHP_MAJOR_VERSION < 7
 		zend_object std;
+#endif
 		void *handle;
 		krb5_context ctx;
 		kadm5_config_params config;
-		int refcount;
+#if PHP_MAJOR_VERSION >= 7
+		zend_object std;
+#endif
 	} krb5_kadm5_object;
 
 	void php_krb5_free_kadm5_object(krb5_kadm5_object *obj);
@@ -61,16 +65,25 @@
 	zend_class_entry *krb5_ce_kadm5_principal;
 
 	typedef struct _krb5_kadm5_principal_object {
+#if PHP_MAJOR_VERSION < 7
 		zend_object std;
+#endif
 		int loaded;
 		long int update_mask;
 		kadm5_principal_ent_rec data;
 		krb5_kadm5_object *conn;
+#if PHP_MAJOR_VERSION >= 7
+		zend_object std;
+#endif
 	} krb5_kadm5_principal_object;
 
 	int php_krb5_register_kadm5_principal(TSRMLS_D);
 
+#if PHP_MAJOR_VERSION < 7
 	zend_object_value php_krb5_kadm5_principal_object_new(zend_class_entry *ce TSRMLS_DC);
+#else
+	zend_object* php_krb5_kadm5_principal_object_new(zend_class_entry *ce TSRMLS_DC);
+#endif
 
 	PHP_METHOD(KADM5Principal, __construct);
 	PHP_METHOD(KADM5Principal, load);
@@ -116,17 +129,26 @@
 	zend_class_entry *krb5_ce_kadm5_policy;
 
 	typedef struct _krb5_kadm5_policy_object {
+#if PHP_MAJOR_VERSION < 7
 		zend_object std;
+#endif
 		char *policy;
 		long int update_mask;
 		kadm5_policy_ent_rec data;
 		krb5_kadm5_object *conn;
+#if PHP_MAJOR_VERSION >= 7
+		zend_object std;
+#endif
 	} krb5_kadm5_policy_object;
 
 
 	int php_krb5_register_kadm5_policy(TSRMLS_D);
 
+#if PHP_MAJOR_VERSION < 7
 	zend_object_value php_krb5_kadm5_policy_object_new(zend_class_entry *ce TSRMLS_DC);
+#else
+	zend_object* php_krb5_kadm5_policy_object_new(zend_class_entry *ce TSRMLS_DC);
+#endif
 
 	PHP_METHOD(KADM5Policy, __construct);
 	PHP_METHOD(KADM5Policy, __destruct);
@@ -154,18 +176,27 @@
 	zend_class_entry *krb5_ce_kadm5_tldata;
 
 	typedef struct _krb5_kadm5_tldata_object {
+#if PHP_MAJOR_VERSION < 7
 		zend_object std;
+#endif
 		krb5_tl_data data;
+#if PHP_MAJOR_VERSION >= 7
+		zend_object std;
+#endif
 	} krb5_kadm5_tldata_object;
 
 	int php_krb5_register_kadm5_tldata(TSRMLS_D);
+#if PHP_MAJOR_VERSION < 7
 	zend_object_value php_krb5_kadm5_tldata_object_new(zend_class_entry *ce TSRMLS_DC);
+#else
+	zend_object* php_krb5_kadm5_tldata_object_new(zend_class_entry *ce TSRMLS_DC);
+#endif
 
 	PHP_METHOD(KADM5TLData, __construct);
 	PHP_METHOD(KADM5TLData, getType);
 	PHP_METHOD(KADM5TLData, getData);
 
-	zval* php_krb5_kadm5_tldata_to_array(krb5_tl_data *data, krb5_int16 num TSRMLS_DC);
+	void php_krb5_kadm5_tldata_to_array(zval *array, krb5_tl_data *data, krb5_int16 num TSRMLS_DC);
 	krb5_tl_data* php_krb5_kadm5_tldata_from_array(zval *array, krb5_int16* count TSRMLS_DC);
 	void php_krb5_kadm5_tldata_free(krb5_tl_data *data, krb5_int16 num TSRMLS_DC);
 #endif
