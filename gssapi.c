@@ -326,6 +326,9 @@ PHP_METHOD(GSSAPIContext, registerAcceptorIdentity)
 		php_error_docref(NULL TSRMLS_CC,  E_ERROR, "Failed to release mutex lock in GSSAPI module");\
 		return;\
 	}
+#else
+#define LOCK_MUTEX
+#define UNLOCK_MUTEX
 #endif
 
 #define STORE_CONTEXT(ccache, oldkrb5ccname, oldkrb5ktname) { \
