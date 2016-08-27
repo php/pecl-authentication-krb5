@@ -59,6 +59,11 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 
 	CFLAGS="-Wall ${CFLAGS} ${KRB5_CFLAGS}"
 	LDFLAGS="${LDFLAGS} ${KRB5_LDFLAGS}"
+
+	AC_CHECK_FUNCS(krb5_free_string)
+	AC_CHECK_FUNCS(krb5_chpw_message)
+	AC_CHECK_FUNCS(krb5_principal_get_realm)
+
 	PHP_SUBST(CFLAGS)
 	PHP_SUBST(LDFLAGS)
 	PHP_NEW_EXTENSION(krb5, $SOURCE_FILES, $ext_shared)

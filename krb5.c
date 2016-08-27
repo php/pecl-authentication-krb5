@@ -62,6 +62,13 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_initKeytab, 0, 0, 2)
 	ZEND_ARG_ARRAY_INFO(0, options, 0)
 ZEND_END_ARG_INFO()
 
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_changePassword, 0, 0, 3)
+	ZEND_ARG_INFO(0, principal)
+	ZEND_ARG_INFO(0, oldpass)
+	ZEND_ARG_INFO(0, newpass)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5CCache_open, 0, 0, 1)
 	ZEND_ARG_INFO(0, src)
 ZEND_END_ARG_INFO()
@@ -80,6 +87,7 @@ ZEND_END_ARG_INFO()
 
 PHP_METHOD(KRB5CCache, initPassword);
 PHP_METHOD(KRB5CCache, initKeytab);
+PHP_METHOD(KRB5CCache, changePassword);
 PHP_METHOD(KRB5CCache, getName);
 PHP_METHOD(KRB5CCache, getPrincipal);
 PHP_METHOD(KRB5CCache, getRealm);
@@ -94,6 +102,7 @@ PHP_METHOD(KRB5CCache, renew);
 static zend_function_entry krb5_ccache_functions[] = {
 		PHP_ME(KRB5CCache, initPassword, arginfo_KRB5CCache_initPassword, ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, initKeytab,   arginfo_KRB5CCache_initKeytab,   ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, changePassword,arginfo_KRB5CCache_changePassword,   ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 		PHP_ME(KRB5CCache, getName,      arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, getPrincipal, arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, getRealm,     arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
@@ -358,13 +367,13 @@ static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *c
 		krb5_get_init_creds_opt_set_proxiable(cred_opts, zval_is_true(tmp));
 	}
 
-#ifdef HAVE_KRB5_INIT_CREDS_CANONICALIZE
+#ifdef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
 	/* canonicalize */
 	tmp = zend_compat_hash_find(HASH_OF(opts), "canonicalize", sizeof("canonicalize"));
 	if (tmp != NULL) {
 		krb5_get_init_creds_opt_set_canonicalize(cred_opts, zval_is_true(tmp));
 	}
-#endif /* HAVE_KRB5_INIT_CREDS_CANONICALIZE */
+#endif /* KRB5_GET_INIT_CREDS_OPT_CANONICALIZE */
 
 	/* tkt_life */
 	tmp = zend_compat_hash_find(HASH_OF(opts), "tkt_life", sizeof("tkt_life"));
@@ -1207,7 +1216,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 			if ((tktflags & TKT_FLG_INITIAL) && (p < q)) *(p++) = 'I';
 			if ((tktflags & TKT_FLG_PRE_AUTH) && (p < q)) *(p++) = 'A';
 			if ((tktflags & TKT_FLG_HW_AUTH) && (p < q)) *(p++) = 'H';
-		if ((tktflags & TKT_FLG_TRANSIT_POLICY_CHECKED) && (p < q)) *(p++) = 'T';
+			if ((tktflags & TKT_FLG_TRANSIT_POLICY_CHECKED) && (p < q)) *(p++) = 'T';
 			if ((tktflags & TKT_FLG_OK_AS_DELEGATE) && (p < q)) *(p++) = 'O';
 #ifdef TKT_FLG_ENC_PA_REP
 			if ((tktflags & TKT_FLG_ENC_PA_REP) && (p < q)) *(p++) = 'e';
@@ -1366,6 +1375,131 @@ PHP_METHOD(KRB5CCache, renew)
 	if (retval) {
 		if (*errstr) {
 			php_krb5_display_error(ccache->ctx, retval, errstr TSRMLS_CC);
+		}
+		RETURN_FALSE;
+	}
+
+	/* otherwise */
+	RETURN_TRUE;
+}
+/* }}} */
+
+
+/* {{{ proto bool KRB5CCache::changePassword( string $principal, string $oldpass, string $newpass )
+   Changes a principal's password using kpasswd */
+PHP_METHOD(KRB5CCache, changePassword)
+{
+	
+	krb5_error_code retval = 0;
+	krb5_context ctx = NULL;
+	char *errstr = "";
+	char *message = NULL;
+
+	char *sprinc = NULL;
+	strsize_t sprinc_len = 0;
+	char *opass = NULL;
+	strsize_t opass_len = 0;
+	char *npass = NULL;
+	strsize_t npass_len = 0;
+
+	krb5_principal princ;
+	int have_princ = 0;
+	krb5_get_init_creds_opt *cred_opts;
+	int have_cred_opts = 0;
+	krb5_creds creds;
+	int have_creds = 0;
+	int result_code;
+        krb5_data result_code_string, result_string;
+
+
+#ifndef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
+	krb5_get_init_creds_opt cred_opts_struct;
+	cred_opts = &cred_opts_struct;
+#endif
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sss", &sprinc, &sprinc_len, &opass, &opass_len, &npass, &npass_len) == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
+    do {
+ 	retval = krb5_init_context(&ctx);
+	if ( retval ) {
+		errstr = "Failed to initialize context (%s)";
+		break;
+	}
+
+	memset(&princ, 0, sizeof(princ));
+	if ((retval = krb5_parse_name(ctx, sprinc, &princ))) {
+		errstr = "Cannot parse Kerberos principal (%s)";
+		break;
+	}
+	have_princ = 1;
+
+#ifdef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
+	if ((retval = krb5_get_init_creds_opt_alloc(ctx, &cred_opts))) {
+		errstr = "Cannot allocate cred_opts (%s)";
+		break;
+	}
+#else
+	krb5_get_init_creds_opt_init(cred_opts);
+#endif
+	have_cred_opts = 1;
+
+	krb5_get_init_creds_opt_set_tkt_life(cred_opts, 5*60);
+	krb5_get_init_creds_opt_set_renew_life(cred_opts, 0);
+	krb5_get_init_creds_opt_set_forwardable(cred_opts, 0);
+	krb5_get_init_creds_opt_set_proxiable(cred_opts, 0);
+
+	memset(&creds, 0, sizeof(creds));
+	if ((retval = krb5_get_init_creds_password(ctx, &creds, princ, opass, NULL, 0, 0, "kadmin/changepw", cred_opts))) {
+		errstr = "Cannot get ticket (%s)";
+		break;
+	}
+	have_creds = 1;
+
+	if ((retval = krb5_change_password(ctx, &creds, npass, 
+					&result_code, &result_code_string, 
+					&result_string))) { 
+		errstr = "Failed to change password (%s)";
+		break;
+	}
+
+	if (result_code != KRB5_KPASSWD_SUCCESS) {
+#ifdef HAVE_KRB5_CHPW_MESSAGE
+		if (krb5_chpw_message(ctx, &result_string, &message) != 0)
+			message = NULL;
+#endif
+		krb5_free_principal(ctx, princ);
+		krb5_free_cred_contents(ctx, &creds);
+#ifdef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
+		if (have_cred_opts) krb5_get_init_creds_opt_free(ctx, cred_opts);
+#endif
+
+		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "%.*s: %s",  (int) result_code_string.length, 
+						result_code_string.data,
+		                                message ? message : result_string.data);
+#ifdef HAVE_KRB5_FREE_STRING
+		krb5_free_string(ctx, message);
+#else
+		free(message);
+#endif
+		RETURN_FALSE;
+	}
+
+    } while (0);
+
+	if (have_princ) krb5_free_principal(ctx, princ);
+	if (have_creds) krb5_free_cred_contents(ctx, &creds);
+#ifdef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
+	if (have_cred_opts) krb5_get_init_creds_opt_free(ctx, cred_opts);
+#endif
+
+	if (retval) {
+		if ( ctx == NULL ) {
+			zend_throw_exception_ex(NULL, 0 TSRMLS_CC, errstr, retval);
+		} else if (*errstr) {
+			php_krb5_display_error(ctx, retval, errstr TSRMLS_CC);
 		}
 		RETURN_FALSE;
 	}
