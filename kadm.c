@@ -25,6 +25,10 @@
 #include "compat.h"
 
 
+zend_class_entry *krb5_ce_kadm5;
+zend_class_entry *krb5_ce_kadm5_principal;
+zend_class_entry *krb5_ce_kadm5_policy;
+zend_class_entry *krb5_ce_kadm5_tldata;
 
 zend_object_handlers krb5_kadm5_handlers;
 

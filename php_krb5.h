@@ -61,7 +61,7 @@ PHP_MINIT_FUNCTION(krb5);
 PHP_MSHUTDOWN_FUNCTION(krb5);
 PHP_MINFO_FUNCTION(krb5);
 
-zend_class_entry *krb5_ce_ccache;
+extern zend_class_entry *krb5_ce_ccache;
 
 typedef struct _krb5_ccache_object {
 #if PHP_MAJOR_VERSION < 7

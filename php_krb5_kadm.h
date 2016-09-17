@@ -34,7 +34,7 @@
 #define SUCCESS 0
 
 /* KADM5 Object */
-	zend_class_entry *krb5_ce_kadm5;
+	extern zend_class_entry *krb5_ce_kadm5;
 
 	typedef struct _krb5_kadm5_object {
 #if PHP_MAJOR_VERSION < 7
@@ -62,7 +62,7 @@
 
 
 	/* KADM5Principal Object */
-	zend_class_entry *krb5_ce_kadm5_principal;
+	extern zend_class_entry *krb5_ce_kadm5_principal;
 
 	typedef struct _krb5_kadm5_principal_object {
 #if PHP_MAJOR_VERSION < 7
@@ -126,7 +126,7 @@
 
 
 	/* KADM5Policy Object */
-	zend_class_entry *krb5_ce_kadm5_policy;
+	extern zend_class_entry *krb5_ce_kadm5_policy;
 
 	typedef struct _krb5_kadm5_policy_object {
 #if PHP_MAJOR_VERSION < 7
@@ -173,7 +173,7 @@
 
 
 	/* KADM5TLData Object */
-	zend_class_entry *krb5_ce_kadm5_tldata;
+	extern zend_class_entry *krb5_ce_kadm5_tldata;
 
 	typedef struct _krb5_kadm5_tldata_object {
 #if PHP_MAJOR_VERSION < 7

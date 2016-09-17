@@ -44,6 +44,7 @@
 #include "kdb.h"
 #endif
 
+zend_class_entry *krb5_ce_ccache;
 
 /* Class definition */
 
