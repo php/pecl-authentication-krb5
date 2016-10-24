@@ -52,6 +52,18 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setHistoryNum, 0, 0, 1)
 	ZEND_ARG_INFO(0, history_num)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setLockoutDuration, 0, 0, 1)
+	ZEND_ARG_INFO(0, duration)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setMaxFailureCount, 0, 0, 1)
+	ZEND_ARG_INFO(0, failcnt)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Policy_setFailureInterval, 0, 0, 1)
+	ZEND_ARG_INFO(0, interval)
+ZEND_END_ARG_INFO()
+
 static zend_function_entry krb5_kadm5_policy_functions[] = {
 	PHP_ME(KADM5Policy, __construct,           arginfo_KADM5Policy__construct,            ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(KADM5Policy, load,                  arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
@@ -70,6 +82,12 @@ static zend_function_entry krb5_kadm5_policy_functions[] = {
 	PHP_ME(KADM5Policy, getHistoryNum,         arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Policy, setHistoryNum,         arginfo_KADM5Policy_setHistoryNum,         ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5Policy, getReferenceCount,     arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getMaxFailureCount,    arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setMaxFailureCount,    arginfo_KADM5Policy_setMaxFailureCount,    ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getFailureInterval,    arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setFailureInterval,    arginfo_KADM5Policy_setFailureInterval,    ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, getLockoutDuration,    arginfo_KADM5Policy_none,                  ZEND_ACC_PUBLIC)
+	PHP_ME(KADM5Policy, setLockoutDuration,    arginfo_KADM5Policy_setLockoutDuration,    ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -343,6 +361,9 @@ PHP_METHOD(KADM5Policy, getPropertyArray)
 	add_assoc_long(return_value, "pw_min_length", obj->data.pw_min_length);
 	add_assoc_long(return_value, "pw_min_classes", obj->data.pw_min_classes);
 	add_assoc_long(return_value, "pw_history_num", obj->data.pw_history_num);
+	add_assoc_long(return_value, "pw_lockout_duration", obj->data.pw_lockout_duration);
+	add_assoc_long(return_value, "pw_failcnt_interval", obj->data.pw_failcnt_interval);
+	add_assoc_long(return_value, "pw_max_fail", obj->data.pw_max_fail);
 	add_assoc_long(return_value, "policy_refcnt", obj->data.policy_refcnt);
 }
 /* }}} */
@@ -521,5 +542,98 @@ PHP_METHOD(KADM5Policy, getReferenceCount)
 		return;
 	}
 	RETURN_LONG(obj->data.policy_refcnt);
+}
+/* }}} */
+
+
+/* {{{ proto KADM5Policy::getLockoutDuration()
+ */
+PHP_METHOD(KADM5Policy, getLockoutDuration)
+{
+	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+	RETURN_LONG(obj->data.pw_lockout_duration);
+}
+/* }}} */
+
+/* {{{ proto KADM5Policy::setLockoutDuration(long $duration)
+ */
+PHP_METHOD(KADM5Policy, setLockoutDuration)
+{
+	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
+	zend_long duration;
+	
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &duration) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	obj->data.pw_lockout_duration = duration;
+	obj->update_mask |= KADM5_PW_LOCKOUT_DURATION;
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto KADM5Policy::getMaxFailureCount()
+ */
+PHP_METHOD(KADM5Policy, getMaxFailureCount)
+{
+	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+	RETURN_LONG(obj->data.pw_max_fail);
+}
+/* }}} */
+
+/* {{{ proto KADM5Policy::setMaxFailureCount(long $maxcnt)
+ */
+PHP_METHOD(KADM5Policy, setMaxFailureCount)
+{
+	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
+	zend_long maxfail;
+	
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &maxfail) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	obj->data.pw_max_fail = maxfail;
+	obj->update_mask |= KADM5_PW_MAX_FAILURE;
+	RETURN_TRUE;
+}
+/* }}} */
+
+
+/* {{{ proto KADM5Policy::getFailureInterval()
+ */
+PHP_METHOD(KADM5Policy, getFailureInterval)
+{
+	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		return;
+	}
+	RETURN_LONG(obj->data.pw_failcnt_interval);
+}
+/* }}} */
+
+
+/* {{{ proto KADM5Policy::setFailureInterval(long $interval)
+ */
+PHP_METHOD(KADM5Policy, setFailureInterval)
+{
+	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
+	zend_long failcnt_interval;
+	
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &failcnt_interval) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	obj->data.pw_failcnt_interval = failcnt_interval;
+	obj->update_mask |= KADM5_PW_FAILURE_COUNT_INTERVAL;
+	RETURN_TRUE;
 }
 /* }}} */

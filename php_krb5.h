@@ -32,7 +32,7 @@
 #include "php_krb5_gssapi.h"
 
 #ifdef HAVE_KADM5
-#define KADM5_API_VERSION 2
+#define KADM5_API_VERSION 3
 #endif
 
 #define PHP_SUCCESS SUCCESS

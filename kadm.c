@@ -280,7 +280,7 @@ PHP_METHOD(KADM5, __construct)
 		
 	if(!use_keytab) {
  		retval = kadm5_init_with_password(obj->ctx, sprinc, spass, KADM5_ADMIN_SERVICE, &obj->config, 
- 						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
+ 						KADM5_STRUCT_VERSION, KADM5_API_VERSION_3, NULL, &obj->handle);
  	} else {
 
 		if (strlen(spass) != spass_len) {
@@ -305,7 +305,7 @@ PHP_METHOD(KADM5, __construct)
 #endif
 
  		retval = kadm5_init_with_skey(obj->ctx,sprinc, spass, KADM5_ADMIN_SERVICE, &obj->config, 
- 						KADM5_STRUCT_VERSION, KADM5_API_VERSION_2, NULL, &obj->handle);
+ 						KADM5_STRUCT_VERSION, KADM5_API_VERSION_3, NULL, &obj->handle);
 	}
 
 	if(retval != KADM5_OK) {

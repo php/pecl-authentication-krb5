@@ -170,6 +170,12 @@
 	PHP_METHOD(KADM5Policy, getHistoryNum);
 	PHP_METHOD(KADM5Policy, setHistoryNum);
 	PHP_METHOD(KADM5Policy, getReferenceCount);
+	PHP_METHOD(KADM5Policy, getLockoutDuration);
+	PHP_METHOD(KADM5Policy, setLockoutDuration);
+	PHP_METHOD(KADM5Policy, getMaxFailureCount);
+	PHP_METHOD(KADM5Policy, setMaxFailureCount);
+	PHP_METHOD(KADM5Policy, getFailureInterval);
+	PHP_METHOD(KADM5Policy, setFailureInterval);
 
 
 	/* KADM5TLData Object */
