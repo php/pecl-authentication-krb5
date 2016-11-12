@@ -120,7 +120,7 @@ typedef size_t strsize_t;
 #define _ALLOC_INIT_ZVAL(name) ZVAL_NULL(name)
 #define _RELEASE_ZVAL(name) zval_ptr_dtor(name)
 #define _add_next_index_string add_next_index_string
-#define _add_assoc_string(z, k, s) add_assoc_string_ex(z, k, strlen(k)+1, s)
+#define _add_assoc_string(z, k, s) add_assoc_string_ex(z, k, strlen(k), s)
 #define _add_assoc_string_ex add_assoc_string_ex
 #define _add_assoc_stringl_ex add_assoc_stringl_ex
 

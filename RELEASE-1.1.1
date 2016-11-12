@@ -1,0 +1,7 @@
+- [FEATURE] Add KRB5CCache::changePassword kpasswd method
+- [FEATURE] Add KADM5 API version 3 support (password failure policy)
+- [BUG] properly mark shared globals external (fixes LLVM build)
+- [BUG] Fix unterminated string copy memory corruption in negotiate_auth
+- [BUG] properly free credentials in negotiate_auth (fixes rcache leaks)
+- [BUG] fix _add_assoc_string string length (fixes extra null bytes in some arrays)
+- [BUG] fix PHP7 crash due to wrong addrlist zval declaration

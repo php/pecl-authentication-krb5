@@ -85,11 +85,20 @@ static zend_function_entry krb5_negotiate_auth_functions[] = {
 static void php_krb5_negotiate_auth_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
 {
 	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)obj;
+	OM_uint32 minor_status = 0;
 
 	OBJECT_STD_DTOR(object->std);
 
 	if ( object->servname ) {
 		free(object->servname);
+	}
+
+	if ( object->delegated != GSS_C_NO_CREDENTIAL ) {
+		gss_release_cred(&minor_status, &object->delegated);
+	}
+
+	if ( object->authed_user != GSS_C_NO_NAME ) {
+		gss_release_name(&minor_status, &object->authed_user);
 	}
 	efree(object);
 } 
@@ -97,9 +106,17 @@ static void php_krb5_negotiate_auth_object_dtor(void *obj, zend_object_handle ha
 static void php_krb5_negotiate_auth_object_free(zend_object *obj TSRMLS_DC)
 {
 	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)((char *)obj - XtOffsetOf(krb5_negotiate_auth_object, std));
+	OM_uint32 minor_status = 0;
 
 	if ( object->servname ) {
 		free(object->servname);
+	}
+	if ( object->delegated != GSS_C_NO_CREDENTIAL ) {
+		gss_release_cred(&minor_status, &object->delegated);
+	}
+
+	if ( object->authed_user != GSS_C_NO_NAME ) {
+		gss_release_name(&minor_status, &object->authed_user);
 	}
 	zend_object_std_dtor(obj);
 } 
@@ -240,6 +257,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 
 	OM_uint32 status = 0;
 	OM_uint32 minor_status = 0;
+	OM_uint32 ign_minor_status = 0;
 	OM_uint32 flags;
 	gss_ctx_id_t gss_context = GSS_C_NO_CONTEXT;
 	gss_buffer_desc input_token;
@@ -337,6 +355,11 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 
 	if(!(flags & GSS_C_DELEG_FLAG)) {
 		object->delegated = GSS_C_NO_CREDENTIAL;
+	}
+
+	if ( server_creds != GSS_C_NO_CREDENTIAL ) {
+		
+		gss_release_cred(&ign_minor_status, &server_creds);
 	}
 
 	zend_string_release(token);

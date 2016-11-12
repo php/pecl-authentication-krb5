@@ -22,10 +22,10 @@ Documentation:
   <email>mbechler@eenterphace.org</email>
   <active>yes</active>
  </lead>
- <date>2016-07-16</date>
- <time>16:43:19</time>
+ <date>2016-11-12</date>
+ <time>15:00:00</time>
  <version>
-  <release>1.1.0</release>
+  <release>1.1.1</release>
   <api>0.1.0</api>
  </version>
  <stability>
@@ -33,13 +33,15 @@ Documentation:
   <api>stable</api>
  </stability>
  <license uri="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
- <notes>- [FEATURE] PHP7 compatibility
- - [FEATURE] Support getting/setting TL_DATA in KADM
- - [BUG] Fix GSSAPI->acquireCredentials behaviour, 
-    now defaults to GSS_C_INITIATE if only a ccache is available
-    eagerly initialize credentials when no principal is specified (use ccache default principal)
- - [BUG] Fix a couple of memory leaks, add a few more sanity checks
-</notes>
+ <notes>
+- [FEATURE] Add KRB5CCache::changePassword kpasswd method
+- [FEATURE] Add KADM5 API version 3 support (password failure policy)
+- [BUG] properly mark shared globals external (fixes LLVM build)
+- [BUG] Fix unterminated string copy memory corruption in negotiate_auth
+- [BUG] properly free credentails in negotiate_auth (fixes rcache leaks)
+- [BUG] fix _add_assoc_string string length (fixes extra null bytes in some arrays)
+- [BUG] fix PHP7 crash due to wrong addrlist zval declaration
+ </notes>
  <contents>
   <dir name="/">
    <file role="doc" name="README" />

@@ -1139,7 +1139,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 	char *encstr;
 #define ENCSTRMAX 256
 	krb5_address *tktaddr, **tkt_addrs;
-	zval *addrlist = NULL;
+	_DECLARE_ZVAL(addrlist);
 	struct in_addr ipaddr;
 #ifdef INET6_ADDRSTRLEN
 	struct in6_addr ip6addr;
