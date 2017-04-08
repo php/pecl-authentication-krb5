@@ -22,10 +22,10 @@ Documentation:
   <email>mbechler@eenterphace.org</email>
   <active>yes</active>
  </lead>
- <date>2016-11-12</date>
+ <date>2017-04-08</date>
  <time>15:00:00</time>
  <version>
-  <release>1.1.1</release>
+  <release>1.1.2</release>
   <api>0.1.0</api>
  </version>
  <stability>
@@ -34,13 +34,8 @@ Documentation:
  </stability>
  <license uri="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
  <notes>
-- [FEATURE] Add KRB5CCache::changePassword kpasswd method
-- [FEATURE] Add KADM5 API version 3 support (password failure policy)
-- [BUG] properly mark shared globals external (fixes LLVM build)
-- [BUG] Fix unterminated string copy memory corruption in negotiate_auth
-- [BUG] properly free credentails in negotiate_auth (fixes rcache leaks)
-- [BUG] fix _add_assoc_string string length (fixes extra null bytes in some arrays)
-- [BUG] fix PHP7 crash due to wrong addrlist zval declaration
+- [BUG] Add missing function entry termination for TLData
+- [CLEANUP] Don't return garbage on hard class initialization errors, don't throw from create_object handlers
  </notes>
  <contents>
   <dir name="/">

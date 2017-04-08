@@ -35,6 +35,7 @@ static zend_function_entry krb5_kadm5_tldata_functions[] = {
 	PHP_ME(KADM5TLData, __construct, arginfo_KADM5TLData__construct, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(KADM5TLData, getType, arginfo_KADM5TLData_none, ZEND_ACC_PUBLIC)
 	PHP_ME(KADM5TLData, getData, arginfo_KADM5TLData_none, ZEND_ACC_PUBLIC)
+	PHP_FE_END
 };
 
 zend_object_handlers krb5_kadm5_tldata_handlers;

@@ -280,6 +280,7 @@ static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC)
 zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	zend_object_value retval;
+	zend_object *failed;
 	krb5_ccache_object *object;
 	krb5_error_code ret = 0;
 
@@ -288,17 +289,19 @@ zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	/* intialize context */
 	if((ret = krb5_init_context(&object->ctx))) {
-		zend_throw_exception(NULL, "Cannot initialize Kerberos5 context",0 TSRMLS_CC);
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot initialize Kerberos5 context");
+		efree(object);		
+		return zend_objects_new(&failed, ce TSRMLS_CC);
 	}
 
 	// initialize random ccache
 	if((ret = krb5_cc_new_unique(object->ctx, "MEMORY", "", &object->cc))) {
 		const char *msg = krb5_get_error_message(object->ctx,ret);
-		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Cannot open credential cache (%s)", msg, ret);
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot open credential cache: %s", msg);
 		krb5_free_error_message(object->ctx, msg);
 		krb5_free_context(object->ctx);
 		efree(object);		
-		return retval;
+		return zend_objects_new(&failed, ce TSRMLS_CC);
 	}
 
 
@@ -325,14 +328,19 @@ zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	/* intialize context */
 	if((ret = krb5_init_context(&object->ctx))) {
-		zend_throw_exception(NULL, "Cannot initialize Kerberos5 context",0 TSRMLS_CC);
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot initialize Kerberos5 context");
+		efree(object);		
+		return zend_objects_new(ce);
 	}
 
 	// initialize random ccache
 	if((ret = krb5_cc_new_unique(object->ctx, "MEMORY", "", &object->cc))) {
 		const char *msg = krb5_get_error_message(object->ctx,ret);
-		zend_throw_exception_ex(NULL, 0 TSRMLS_CC, "Cannot open credential cache (%s)", msg, ret);
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot open credential cache: %s", msg);
 		krb5_free_error_message(object->ctx, msg);
+		krb5_free_context(object->ctx);
+		efree(object);		
+		return zend_objects_new(ce);
 	}
 
 	zend_object_std_init(&object->std, ce TSRMLS_CC);
