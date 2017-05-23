@@ -59,6 +59,7 @@ ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth__construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, keytab)
+	ZEND_ARG_INFO(0, spn)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth_getDelegatedCredentials, 0, 0, 1)
@@ -190,7 +191,7 @@ int php_krb5_negotiate_auth_register_classes(TSRMLS_D) {
 
 
 /** KRB5NegotiateAuth Methods **/
-/* {{{ proto bool KRB5NegotiateAuth::__construct( string $keytab )
+/* {{{ proto bool KRB5NegotiateAuth::__construct( string $keytab [, string $spn ] )
    Initialize KRB5NegotitateAuth object with a keytab to use  */
 PHP_METHOD(KRB5NegotiateAuth, __construct)
 {
@@ -198,10 +199,12 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	OM_uint32 status, minor_status;
 	krb5_negotiate_auth_object *object;
 	char *keytab;
+	char *spn = NULL;
 	strsize_t keytab_len = 0;
+	strsize_t spn_len = 0;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH, &keytab, &keytab_len) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH "|s", &keytab, &keytab_len, &spn, &spn_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
@@ -209,35 +212,49 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	object = KRB5_THIS_NEGOTIATE_AUTH;
 
 	/* lookup server's FQDN */
-	zval *server, *server_name;
-	server = zend_compat_hash_find(&EG(symbol_table), "_SERVER", sizeof("_SERVER"));
-	if ( server != NULL ) {
-		server_name = zend_compat_hash_find(HASH_OF(server), "SERVER_NAME", sizeof("SERVER_NAME"));
-		if ( server_name != NULL ) {
-			char *hostname = Z_STRVAL_P(server_name);
-			struct hostent* host = gethostbyname(hostname);
+	if ( spn == NULL ) {
+		zval *server, *server_name;
+		server = zend_compat_hash_find(&EG(symbol_table), "_SERVER", sizeof("_SERVER"));
+		if ( server != NULL ) {
+			server_name = zend_compat_hash_find(HASH_OF(server), "SERVER_NAME", sizeof("SERVER_NAME"));
+			if ( server_name != NULL ) {
+				char *hostname = Z_STRVAL_P(server_name);
+				struct hostent* host = gethostbyname(hostname);
 
-			if(!host) {
-				zend_throw_exception(NULL, "Failed to get server FQDN - Lookup failure", 0 TSRMLS_CC);
+				if(!host) {
+					zend_throw_exception(NULL, "Failed to get server FQDN - Lookup failure", 0 TSRMLS_CC);
+					return;
+				}
+
+				nametmp.length = strlen(host->h_name) + 6;
+				nametmp.value = emalloc(sizeof(char)*nametmp.length);
+				snprintf(nametmp.value, nametmp.length, "HTTP@%s",host->h_name);
+
+				status = gss_import_name(&minor_status, &nametmp,
+								GSS_C_NT_HOSTBASED_SERVICE, &object->servname);
+
+				if(GSS_ERROR(status)) {
+					php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
+					zend_throw_exception(NULL, "Could not parse server name", 0 TSRMLS_CC);
+					return;
+				}
+
+				efree(nametmp.value);
+			} else {
+				zend_throw_exception(NULL, "Failed to get server FQDN", 0 TSRMLS_CC);
 				return;
 			}
+		}
+	} else {
+		nametmp.length = spn_len;
+		nametmp.value = spn;
 
-			nametmp.length = strlen(host->h_name) + 6;
-			nametmp.value = emalloc(sizeof(char)*nametmp.length);
-			snprintf(nametmp.value, nametmp.length, "HTTP@%s",host->h_name);
+		status = gss_import_name(&minor_status, &nametmp,
+						(gss_OID)GSS_KRB5_NT_PRINCIPAL_NAME, &object->servname);
 
-			status = gss_import_name(&minor_status, &nametmp,
-							GSS_C_NT_HOSTBASED_SERVICE, &object->servname);
-
-			if(GSS_ERROR(status)) {
-				php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
-				zend_throw_exception(NULL, "Could not parse server name", 0 TSRMLS_CC);
-				return;
-			}
-
-			efree(nametmp.value);
-		} else {
-			zend_throw_exception(NULL, "Failed to get server FQDN", 0 TSRMLS_CC);
+		if(GSS_ERROR(status)) {
+			php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
+			zend_throw_exception(NULL, "Could not parse server name", 0 TSRMLS_CC);
 			return;
 		}
 	}
