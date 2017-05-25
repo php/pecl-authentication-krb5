@@ -61,6 +61,7 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 	LDFLAGS="${LDFLAGS} ${KRB5_LDFLAGS}"
 
 	AC_CHECK_FUNCS(krb5_free_string)
+	AC_CHECK_FUNCS(gss_acquire_cred_from)
 	AC_CHECK_FUNCS(krb5_chpw_message)
 	AC_CHECK_FUNCS(krb5_principal_get_realm)
 

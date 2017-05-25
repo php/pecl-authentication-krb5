@@ -185,6 +185,8 @@ PHP_MINIT_FUNCTION(krb5)
 	REGISTER_LONG_CONSTANT("GSS_C_BOTH", GSS_C_BOTH, CONST_CS | CONST_PERSISTENT );
 	REGISTER_LONG_CONSTANT("GSS_C_INITIATE", GSS_C_INITIATE, CONST_CS | CONST_PERSISTENT );
 	REGISTER_LONG_CONSTANT("GSS_C_ACCEPT", GSS_C_ACCEPT, CONST_CS | CONST_PERSISTENT );
+
+	REGISTER_LONG_CONSTANT("GSS_C_NO_NAME", 0, CONST_CS | CONST_PERSISTENT );
 	
 #ifdef KRB5_TL_DB_ARGS
 	REGISTER_LONG_CONSTANT("KRB5_TL_DB_ARGS", KRB5_TL_DB_ARGS, CONST_CS | CONST_PERSISTENT );
@@ -232,6 +234,12 @@ PHP_MINFO_FUNCTION(krb5)
 	php_info_print_table_row(2, "KADM5 support", "yes");
 #else
 	php_info_print_table_row(2, "KADM5 support", "no");
+#endif
+
+#if HAVE_GSS_KRB5_IMPORT_CRED
+	php_info_print_table_row(2, "Import cred support", "yes");
+#else
+	php_info_print_table_row(2, "Import cred support", "no");
 #endif
 
 	php_info_print_table_row(2, "GSSAPI/SPNEGO auth support", "yes");
