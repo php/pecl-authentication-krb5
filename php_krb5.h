@@ -70,6 +70,10 @@ typedef struct _krb5_ccache_object {
 	krb5_context ctx;
 	krb5_ccache cc;
 	char *keytab;
+	krb5_boolean exp_received;
+	krb5_timestamp exp_password;
+	krb5_timestamp exp_account;
+	krb5_boolean exp_is_last_req;
 #if PHP_MAJOR_VERSION >= 7
 	zend_object std;
 #endif

@@ -64,6 +64,7 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 	AC_CHECK_FUNCS(gss_acquire_cred_from)
 	AC_CHECK_FUNCS(krb5_chpw_message)
 	AC_CHECK_FUNCS(krb5_principal_get_realm)
+	AC_CHECK_FUNCS(krb5_get_init_creds_opt_set_expire_callback)
 
 	PHP_SUBST(CFLAGS)
 	PHP_SUBST(LDFLAGS)

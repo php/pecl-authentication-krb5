@@ -99,6 +99,7 @@ PHP_METHOD(KRB5CCache, save);
 PHP_METHOD(KRB5CCache, isValid);
 PHP_METHOD(KRB5CCache, getTktAttrs);
 PHP_METHOD(KRB5CCache, renew);
+PHP_METHOD(KRB5CCache, getExpirationTime);
 
 static zend_function_entry krb5_ccache_functions[] = {
 		PHP_ME(KRB5CCache, initPassword, arginfo_KRB5CCache_initPassword, ZEND_ACC_PUBLIC)
@@ -114,6 +115,7 @@ static zend_function_entry krb5_ccache_functions[] = {
 		PHP_ME(KRB5CCache, isValid,      arginfo_KRB5CCache_isValid,      ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, getTktAttrs,  arginfo_KRB5CCache_getTktAttrs,  ZEND_ACC_PUBLIC)
 		PHP_ME(KRB5CCache, renew,        arginfo_KRB5CCache_none,         ZEND_ACC_PUBLIC)
+		PHP_ME(KRB5CCache, getExpirationTime,arginfo_KRB5CCache_none,     ZEND_ACC_PUBLIC)
 		PHP_FE_END
 };
 
@@ -640,6 +642,17 @@ static krb5_error_code php_krb5_verify_tgt(krb5_ccache_object *ccache, krb5_cred
 }
 /* }}} */
 
+#ifdef HAVE_KRB5_GET_INIT_CREDS_OPT_SET_EXPIRE_CALLBACK
+/* {{{ received and store password and account expiration times */
+void expire_callback_func(krb5_context context, void *data, krb5_timestamp password_expiration, krb5_timestamp account_expiration, krb5_boolean is_last_req) {
+    krb5_ccache_object *ccache = (krb5_ccache_object *) data;
+    ccache->exp_received = TRUE;
+    ccache->exp_password = password_expiration;
+    ccache->exp_account = account_expiration;
+    ccache->exp_is_last_req = is_last_req;
+}
+#endif
+/* }}} */
 
 /* KRB5CCache Methods */
 
@@ -787,6 +800,13 @@ PHP_METHOD(KRB5CCache, initPassword)
 			break;
 		}
 	}
+
+#ifdef HAVE_KRB5_GET_INIT_CREDS_OPT_SET_EXPIRE_CALLBACK
+	krb5_get_init_creds_opt_set_expire_callback(ccache->ctx,
+			cred_opts,
+			expire_callback_func,
+			ccache);
+#endif
 
 	memset(&creds, 0, sizeof(creds));
 	if ((retval = krb5_get_init_creds_password(ccache->ctx, &creds, princ, spass, NULL, 0, 0, in_tkt_svc, cred_opts))) {
@@ -1523,6 +1543,25 @@ PHP_METHOD(KRB5CCache, changePassword)
 
 	/* otherwise */
 	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto array KRB5CCache::getExpirationTime( )
+   Return array with password and account expiry times */
+PHP_METHOD(KRB5CCache, getExpirationTime)
+{
+	krb5_ccache_object *ccache = KRB5_THIS_CCACHE;
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		zend_throw_exception(NULL, "Failed to parse arglist", 0 TSRMLS_CC);
+		RETURN_FALSE;
+	}
+
+	array_init(return_value);
+	add_assoc_long(return_value, "received", ccache->exp_received);
+	add_assoc_long(return_value, "password_expiration", ccache->exp_password);
+	add_assoc_long(return_value, "account_expiration", ccache->exp_account);
+	add_assoc_bool(return_value, "is_last_req", ccache->exp_is_last_req);
 }
 /* }}} */
 
