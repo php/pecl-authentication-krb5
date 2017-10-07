@@ -1558,7 +1558,7 @@ PHP_METHOD(KRB5CCache, getExpirationTime)
 	}
 
 	array_init(return_value);
-	add_assoc_long(return_value, "received", ccache->exp_received);
+	add_assoc_bool(return_value, "received", ccache->exp_received);
 	add_assoc_long(return_value, "password_expiration", ccache->exp_password);
 	add_assoc_long(return_value, "account_expiration", ccache->exp_account);
 	add_assoc_bool(return_value, "is_last_req", ccache->exp_is_last_req);
