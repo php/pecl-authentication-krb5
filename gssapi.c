@@ -612,8 +612,9 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	if(status & GSS_S_CONTINUE_NEEDED) {
 		RETVAL_FALSE;
 	} else if(status) {
-		gss_release_name(&minor_status, &targetname);
-		gss_release_buffer(&minor_status, &tokenbuf);
+		OM_uint32 tmpstat = 0;
+		gss_release_name(&tmpstat, &targetname);
+		gss_release_buffer(&tmpstat, &tokenbuf);
 		ASSERT_GSS_SUCCESS(status,minor_status,);
 	} else {
 		RETVAL_TRUE;

@@ -289,7 +289,6 @@ PHP_METHOD(KADM5Principal, load)
 	}
 
 	zend_string *pnstr = zval_get_string(princname TSRMLS_CC);
-	fprintf(stderr, "Loading %s\n", pnstr->val);
 	if(krb5_parse_name(kadm5->ctx, pnstr->val, &obj->data.principal)) {
 		zend_string_release(pnstr);
 		zend_throw_exception(NULL, "Failed to parse principal name", 0 TSRMLS_CC);
