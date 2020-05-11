@@ -229,7 +229,7 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	if ( spn != NULL && Z_TYPE_P((spn))==IS_LONG && zval_get_long(spn TSRMLS_CC) == 0) {
 		object->servname = GSS_C_NO_NAME;
 	}
-	else if ( spn == NULL ) {
+	else if ( spn == NULL || Z_TYPE_P((spn))==IS_NULL ) {
 		/** legacy behavior - try to find canonical server FQDN **/
 		zval *server, *server_name;
 		server = zend_compat_hash_find(&EG(symbol_table), "_SERVER", sizeof("_SERVER"));
