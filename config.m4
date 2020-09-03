@@ -69,5 +69,5 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 	PHP_SUBST(CFLAGS)
 	PHP_SUBST(LDFLAGS)
 	PHP_NEW_EXTENSION(krb5, $SOURCE_FILES, $ext_shared)
-	PHP_INSTALL_HEADERS([ext/krb5], [php_krb5.h])
+	PHP_INSTALL_HEADERS([ext/krb5], [php_krb5.h php_krb5_compat.h php_krb5_gssapi.h])
 fi

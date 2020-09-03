@@ -22,7 +22,6 @@
 
 #include "php_krb5.h"
 #include "php_krb5_gssapi.h"
-#include "compat.h"
 #include "config.h"
 #include "SAPI.h"
 #include "ext/standard/base64.h"

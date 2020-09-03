@@ -23,7 +23,6 @@
 
 #include "php.h"
 #include "php_krb5.h"
-#include "compat.h"
 
 /* Class definition */
 

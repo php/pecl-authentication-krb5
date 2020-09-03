@@ -22,7 +22,6 @@
 
 #include "php_krb5.h"
 #include "php_krb5_kadm.h"
-#include "compat.h"
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KADM5Principal_none, 0, 0, 0)
 ZEND_END_ARG_INFO()

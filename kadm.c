@@ -22,7 +22,6 @@
 
 #include "php_krb5.h"
 #include "php_krb5_kadm.h"
-#include "compat.h"
 
 
 zend_class_entry *krb5_ce_kadm5;
