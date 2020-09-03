@@ -29,6 +29,7 @@
 
 #include "php.h"
 #include "Zend/zend_exceptions.h"
+#include "compat.h"
 #include "php_krb5_gssapi.h"
 
 #ifdef HAVE_KADM5

@@ -32,7 +32,6 @@
 
 #include "config.h"
 #include "php_krb5.h"
-#include "compat.h"
 
 #include "ext/standard/info.h"
 #include "ext/standard/base64.h"

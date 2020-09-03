@@ -199,7 +199,7 @@ PHP_METHOD(KADM5Policy, __construct)
 	obj->policy = estrndup(spolicy, spolicy_len);
 
 	if(connobj && Z_TYPE_P(connobj) == IS_OBJECT) {
-		zend_update_property(krb5_ce_kadm5_principal, getThis(), "connection", sizeof("connection"), connobj TSRMLS_CC);
+		zend_update_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(getThis()), "connection", sizeof("connection"), connobj TSRMLS_CC);
 		this->conn = KRB5_KADM(connobj);
 
 #if PHP_MAJOR_VERSION < 7
@@ -239,7 +239,7 @@ PHP_METHOD(KADM5Policy, __construct)
 #if PHP_MAJOR_VERSION < 7
 #define KRB5_KADM_POLICY_GET_CONNECTION zend_read_property(krb5_ce_kadm5_policy, getThis(), "connection", sizeof("connection"),1 TSRMLS_CC);
 #else
-#define KRB5_KADM_POLICY_GET_CONNECTION zend_read_property(krb5_ce_kadm5_policy, getThis(), "connection", sizeof("connection"),1, NULL TSRMLS_CC);
+#define KRB5_KADM_POLICY_GET_CONNECTION zend_read_property(krb5_ce_kadm5_policy, OBJ_FOR_PROP(getThis()), "connection", sizeof("connection"),1, NULL);
 #endif
 
 /* {{{ proto KADM5Policy::load()

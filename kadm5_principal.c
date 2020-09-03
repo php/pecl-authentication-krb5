@@ -200,10 +200,10 @@ PHP_METHOD(KADM5Principal, __construct)
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
-	zend_update_property_string(krb5_ce_kadm5_principal, getThis(), "princname", sizeof("princname"), sprinc TSRMLS_CC);
+	zend_update_property_string(krb5_ce_kadm5_principal, OBJ_FOR_PROP(getThis()), "princname", sizeof("princname"), sprinc TSRMLS_CC);
 
 	if(obj && Z_TYPE_P(obj) == IS_OBJECT) {
-		zend_update_property(krb5_ce_kadm5_principal, getThis(), "connection", sizeof("connection"), obj TSRMLS_CC);
+		zend_update_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(getThis()), "connection", sizeof("connection"), obj TSRMLS_CC);
 		this->conn = KRB5_KADM(obj);
 
 		if ( noload != TRUE ) {
@@ -246,13 +246,13 @@ PHP_METHOD(KADM5Principal, __construct)
 #if PHP_MAJOR_VERSION < 7
 #define KRB5_KADM_PRINCIPAL_GET_CONNECTION zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection", sizeof("connection"),1 TSRMLS_CC)
 #else
-#define KRB5_KADM_PRINCIPAL_GET_CONNECTION zend_read_property(krb5_ce_kadm5_principal, getThis(), "connection", sizeof("connection"),1, NULL TSRMLS_CC)
+#define KRB5_KADM_PRINCIPAL_GET_CONNECTION zend_read_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(getThis()), "connection", sizeof("connection"),1, NULL)
 #endif
 
 #if PHP_MAJOR_VERSION < 7
 #define KRB5_KADM_PRINCIPAL_GET_PRINCNAME zend_read_property(krb5_ce_kadm5_principal, getThis(), "princname", sizeof("princname"),1 TSRMLS_CC)
 #else
-#define KRB5_KADM_PRINCIPAL_GET_PRINCNAME zend_read_property(krb5_ce_kadm5_principal, getThis(), "princname", sizeof("princname"),1, NULL TSRMLS_CC)
+#define KRB5_KADM_PRINCIPAL_GET_PRINCNAME zend_read_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(getThis()), "princname", sizeof("princname"),1, NULL)
 #endif
 
 /* {{{ proto KADM5Principal KADM5Principal::load()

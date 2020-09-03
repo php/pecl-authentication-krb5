@@ -1,6 +1,21 @@
 #ifndef PHP_KRB5_COMPAT_H
 #define PHP_KRB5_COMPAT_H
 
+#if PHP_MAJOR_VERSION < 8
+
+#define OBJ_FOR_PROP(zv) (zv)
+
+#else
+
+#define OBJ_FOR_PROP(zv) Z_OBJ_P(zv)
+
+#define TSRMLS_D void
+#define TSRMLS_DC
+#define TSRMLS_C
+#define TSRMLS_CC
+#define TSRMLS_FETCH()
+
+#endif
 
 #if PHP_MAJOR_VERSION < 7
 struct _zend_string {

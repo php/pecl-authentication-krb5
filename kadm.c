@@ -450,8 +450,8 @@ PHP_METHOD(KADM5, createPrincipal)
 	princname = zend_read_property(krb5_ce_kadm5_principal, princ, "princname",
 									sizeof("princname"),1 TSRMLS_CC);
 #else
-	princname = zend_read_property(krb5_ce_kadm5_principal, princ, "princname",
-									sizeof("princname"),1, NULL TSRMLS_CC);
+	princname = zend_read_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(princ), "princname",
+									sizeof("princname"),1, NULL);
 #endif
 	if ( principal->data.principal ) {
 		krb5_free_principal(obj->ctx, principal->data.principal);
@@ -466,7 +466,7 @@ PHP_METHOD(KADM5, createPrincipal)
 	zend_string_release(pnamestr);
 	principal->update_mask |= KADM5_PRINCIPAL;
 	principal->conn = obj;
-	zend_update_property(krb5_ce_kadm5_principal, princ, "connection", sizeof("connection"), getThis() TSRMLS_CC);
+	zend_update_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(princ), "connection", sizeof("connection"), getThis() TSRMLS_CC);
 
 	retval = kadm5_create_principal(obj->handle, &principal->data, principal->update_mask, pw);
 	if(retval != KADM5_OK) {
@@ -585,7 +585,7 @@ PHP_METHOD(KADM5, createPolicy) {
 	policy->update_mask |= KADM5_POLICY;
 	policy->conn = obj;
 	policy->data.policy = policy->policy;
-	zend_update_property(krb5_ce_kadm5_policy, zpolicy, "connection", sizeof("connection"), getThis() TSRMLS_CC);
+	zend_update_property(krb5_ce_kadm5_policy, OBJ_FOR_PROP(zpolicy), "connection", sizeof("connection"), getThis() TSRMLS_CC);
 
 	retval = kadm5_create_policy(obj->handle, &policy->data, policy->update_mask);
 	if(retval != KADM5_OK) {

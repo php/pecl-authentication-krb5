@@ -445,16 +445,17 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 
 		const char *prompt = "WWW-Authenticate: ";
 		size_t promptLen = strlen(prompt);
+		char *buf;
 
-		ctr.line = emalloc(promptLen+encoded->len+1);
-		strncpy(ctr.line, prompt, promptLen);
-		strncpy(ctr.line + promptLen, encoded->val, encoded->len);
-		ctr.line[promptLen+encoded->len] = 0;
+		ctr.line = buf = emalloc(promptLen + encoded->len + 1);
+		strncpy(buf, prompt, promptLen + 1);
+		strncpy(buf + promptLen, encoded->val, encoded->len + 1);
+		buf[promptLen+encoded->len] = 0;
 		ctr.response_code = 200;
 		sapi_header_op(SAPI_HEADER_ADD, &ctr TSRMLS_CC);
 		zend_string_release(encoded);
 
-		efree(ctr.line);
+		efree(buf);
 		gss_release_buffer(&minor_status, &output_token);
 	}
 	RETURN_TRUE;
