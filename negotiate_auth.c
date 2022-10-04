@@ -115,14 +115,14 @@ static void php_krb5_negotiate_auth_object_dtor(void *obj, zend_object_handle ha
 	OBJECT_STD_DTOR(object->std);
 	php_krb5_negotiate_auth_object_free_data(object);
 	efree(object);
-} 
+}
 #else
 static void php_krb5_negotiate_auth_object_free(zend_object *obj TSRMLS_DC)
 {
 	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)((char *)obj - XtOffsetOf(krb5_negotiate_auth_object, std));
 	php_krb5_negotiate_auth_object_free_data(object);
 	zend_object_std_dtor(obj);
-} 
+}
 #endif
 /* }}} */
 
@@ -159,7 +159,7 @@ zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS
 
 	retval.handlers = &krb5_negotiate_auth_handlers;
 	return retval;
-} 
+}
 #else
 zend_object *php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC)
 {
@@ -190,7 +190,7 @@ int php_krb5_negotiate_auth_register_classes(TSRMLS_D) {
 #endif
 
 	return SUCCESS;
-} 
+}
 /* }}} */
 
 
@@ -272,7 +272,7 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 		status = gss_import_name(&minor_status, &nametmp,
 						(gss_OID)GSS_KRB5_NT_PRINCIPAL_NAME, &object->servname);
 
-		zend_string_free(spnstr);
+		zend_string_release(spnstr);
 
 		if(GSS_ERROR(status)) {
 			php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
@@ -324,14 +324,14 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 #else
 	HashTable* server_vars = Z_ARRVAL(PG(http_globals)[TRACK_VARS_SERVER]);
 #endif
- 
+
 	if(server_vars && (auth_header = zend_compat_hash_find(server_vars, "HTTP_AUTHORIZATION", sizeof("HTTP_AUTHORIZATION"))) != NULL) {
- 
+
 		if(!strncasecmp(Z_STRVAL_P(auth_header), "negotiate", 9) == 0) {
  			// user agent did not provide negotiate authentication data
  			RETURN_FALSE;
  		}
- 
+
 		if(Z_STRLEN_P(auth_header) < 11) {
  			// user agent gave negotiate header but no data
  			zend_throw_exception(NULL, "Invalid negotiate authentication data given", 0 TSRMLS_CC);
@@ -372,7 +372,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 					&server_creds,
 					NULL,
 					NULL);
-	
+
 #else
 	status = gss_acquire_cred(&minor_status,
 			object->servname,
@@ -413,7 +413,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 	}
 
 	if ( server_creds != GSS_C_NO_CREDENTIAL ) {
-		
+
 		gss_release_cred(&ign_minor_status, &server_creds);
 	}
 
@@ -536,7 +536,7 @@ PHP_METHOD(KRB5NegotiateAuth, getDelegatedCredentials)
 		return;
 	}
 
-	/* copy credentials to ccache */ 
+	/* copy credentials to ccache */
 	status = gss_krb5_copy_ccache(&minor_status, object->delegated, ticket->cc);
 
 	if(GSS_ERROR(status)) {
