@@ -22,10 +22,10 @@ Documentation:
   <email>mbechler@eenterphace.org</email>
   <active>yes</active>
  </lead>
- <date>2020-09-14</date>
- <time>15:00:00</time>
+ <date>2023-02-11</date>
+ <time>11:00:00</time>
  <version>
-  <release>1.1.4</release>
+  <release>1.1.5</release>
   <api>0.1.0</api>
  </version>
  <stability>
@@ -34,9 +34,7 @@ Documentation:
  </stability>
  <license uri="http://www.opensource.org/licenses/MIT">MIT License</license>
  <notes>
-- [FEATURE] PHP 8 compatability (thanks to Remi Collet)
-- [BUG] Properly install header files (thanks to Remi Collet)
-- [BUG] Fix behavior when NegotiateAuth is passed null as SPN
+- [BUG] Fix reference handling of KRB5NegotiateAuth constructor spn parameter
  </notes>
  <contents>
   <dir name="/">
