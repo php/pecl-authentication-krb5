@@ -60,6 +60,7 @@ ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_initSecContextArgs, 0, 0, 1)
 	ZEND_ARG_INFO(1, output_token)
 	ZEND_ARG_INFO(1, ret_flags)
 	ZEND_ARG_INFO(1, time_rec)
+	ZEND_ARG_OBJ_INFO(1, channel, GSSAPIChannelBinding, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_acceptSecContextArgs, 0, 0, 1)
@@ -68,7 +69,8 @@ ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_acceptSecContextArgs, 0, 0, 1)
 	ZEND_ARG_INFO(1, src_name)
 	ZEND_ARG_INFO(1, ret_flags)
 	ZEND_ARG_INFO(1, time_rec)
-	ZEND_ARG_OBJ_INFO(0, deleg, KRB5CCache, 0)
+	ZEND_ARG_OBJ_INFO(0, deleg, KRB5CCache, 1)
+	ZEND_ARG_OBJ_INFO(1, channel, GSSAPIChannelBinding, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_getMic, 0, 0, 1)
@@ -278,6 +280,7 @@ int php_krb5_gssapi_register_classes(TSRMLS_D)
 	krb5_gssapi_context_handlers.free_obj = php_krb5_gssapi_context_object_free;
 #endif
 
+	php_krb5_register_gss_channel();
 	return SUCCESS;
 }
 /* }}} */
@@ -539,7 +542,7 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 
 } /* }}} */
 
-/* {{{ proto boolean GSSAPIContext::initSecContext( string $target [, string $input_token [, int $req_flags [, int $time_eq [, string &$output_token [, int &$ret_flags [, int &$time-rec ]]]]]] )
+/* {{{ proto boolean GSSAPIContext::initSecContext( string $target [, string $input_token [, int $req_flags [, int $time_eq [, string &$output_token [, int &$ret_flags [, int &$time-rec [, GSSAPIChannelBinding $binding]]]]]]] )
    Initiate a security context */
 PHP_METHOD(GSSAPIContext, initSecContext)
 {
@@ -555,6 +558,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	gss_buffer_desc tokenbuf;
 	gss_buffer_desc inputtoken;
 	gss_buffer_desc target;
+	gss_channel_bindings_t chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
 	strsize_t target_len = 0;
 	strsize_t inputtoken_len = 0;
 
@@ -565,12 +569,13 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	zval *ztokenbuf = NULL;
 	zval *zret_flags = NULL;
 	zval *ztime_rec = NULL;
+	zval *zchannel = NULL;
 
 #if PHP_MAJOR_VERSION >= 7
-	const char *args = "s|sllz/z/z/";
+	const char *args = "s|sllz/z/z/O";
 #else
 	
-	const char *args = "s|sllzzz";
+	const char *args = "s|sllzzzO";
 #endif
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
@@ -580,14 +585,19 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 								&time_req,
 								&ztokenbuf,
 								&zret_flags,
-								&ztime_rec
-								) == FAILURE) {
+								&ztime_rec,
+								&zchannel, krb5_ce_gss_channel) == FAILURE) {
 		return;
 	}
 	target.length = target_len;
 	inputtoken.length = inputtoken_len;
 	
-
+	if (zchannel != NULL) {
+		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(zchannel);
+		if ( zchannelobj != NULL ) {
+			chan_bindings = &zchannelobj->data;
+		}
+	}
 
 	gss_name_t targetname;
 	status = gss_import_name(&minor_status, &target,GSS_C_NO_OID, &targetname);
@@ -601,7 +611,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	     GSS_C_NO_OID,
 	     req_flags,
 	     time_req,
-	     NULL,
+	     chan_bindings,
 	     &inputtoken,
 	     NULL,
 	     &tokenbuf,
@@ -643,7 +653,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 
 } /* }}} */
 
-/* {{{ proto boolean GSSAPIContext::acceptSecContext( string $token [, string &$output_token [, string &$remote_principal [, int &$ret_flags [, int &$time_rec [, KRB5CCache deleg]]]]] )
+/* {{{ proto boolean GSSAPIContext::acceptSecContext( string $token [, string &$output_token [, string &$remote_principal [, int &$ret_flags [, int &$time_rec [, KRB5CCache deleg [, GSSAPIChannelBinding binding]]]]]] )
    Establish/accept a remotely initiated security context */
 PHP_METHOD(GSSAPIContext, acceptSecContext)
 {
@@ -655,6 +665,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	gss_buffer_desc tokenbuf;
 	gss_name_t src_name = GSS_C_NO_NAME;
 	gss_cred_id_t deleg_creds = GSS_C_NO_CREDENTIAL;
+	gss_channel_bindings_t chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
 	strsize_t inputtoken_len = 0;
 
 	memset(&inputtoken, 0, sizeof(inputtoken));
@@ -668,12 +679,13 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	zval* ztime_rec = NULL;
 	zval* zsrc_name = NULL;
 	zval* zdeleg_creds = NULL;
+	zval *zchannel = NULL;
 
 #if PHP_MAJOR_VERSION >= 7
-	const char *args = "s|z/z/z/z/O";
+	const char *args = "s|z/z/z/z/OO";
 #else
 	
-	const char *args = "s|zzzzO";
+	const char *args = "s|zzzzOO";
 #endif
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
@@ -682,18 +694,26 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 			&zsrc_name,
 			&zret_flags,
 			&ztime_rec,
-			&zdeleg_creds, krb5_ce_ccache) == FAILURE) {
+			&zdeleg_creds, krb5_ce_ccache,
+			&zchannel, krb5_ce_gss_channel) == FAILURE) {
 		return;
 	}
 
 	inputtoken.length = inputtoken_len;
+	
+	if (zchannel != NULL) {
+		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(zchannel);
+		if ( zchannelobj != NULL ) {
+			chan_bindings = &zchannelobj->data;
+		}
+	}
 
 	status =  gss_accept_sec_context (
 			&minor_status,
 			&context->context,
 			context->creds,
 			&inputtoken,
-			GSS_C_NO_CHANNEL_BINDINGS,
+			chan_bindings,
 			&src_name,
 			NULL,
 			&tokenbuf,

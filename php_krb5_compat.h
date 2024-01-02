@@ -147,6 +147,7 @@ typedef size_t strsize_t;
 #define KRB5_CCACHE(zv) (krb5_ccache_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_ccache_object, std))
 #define KRB5_NEGOTIATE_AUTH(zv)  (krb5_negotiate_auth_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_negotiate_auth_object, std))
 #define KRB5_GSSAPI_CONTEXT(zv)  (krb5_gssapi_context_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_gssapi_context_object, std))
+#define KRB5_GSS_CHANNEL(zv) (krb5_gss_channel_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_gss_channel_object, std))
 
 #define KRB5_KADM(zv) (krb5_kadm5_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_kadm5_object, std))
 #define KRB5_KADM_POLICY(zv) (krb5_kadm5_policy_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_kadm5_policy_object, std))
@@ -191,6 +192,7 @@ static zend_always_inline zval* zend_compat_hash_find(HashTable *ht, char *key, 
 #define KRB5_THIS_CCACHE KRB5_CCACHE(getThis())
 #define KRB5_THIS_NEGOTIATE_AUTH KRB5_NEGOTIATE_AUTH(getThis())
 #define KRB5_THIS_GSSAPI_CONTEXT KRB5_GSSAPI_CONTEXT(getThis())
+#define KRB5_THIS_GSS_CHANNEL KRB5_GSS_CHANNEL(getThis())
 
 #define KRB5_THIS_KADM KRB5_KADM(getThis())
 #define KRB5_THIS_KADM_POLICY KRB5_KADM_POLICY(getThis())

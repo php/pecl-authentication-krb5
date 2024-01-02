@@ -25,6 +25,30 @@
 
 #include <gssapi/gssapi.h>
 
+
+extern zend_class_entry *krb5_ce_gss_channel;
+
+PHP_METHOD(GSSAPIChannelBinding, __construct);
+PHP_METHOD(GSSAPIChannelBinding, getInitiatorAddress);
+PHP_METHOD(GSSAPIChannelBinding, getInitiatorAddressType);
+PHP_METHOD(GSSAPIChannelBinding, setInitiatorAddress);
+PHP_METHOD(GSSAPIChannelBinding, getAcceptorAddress);
+PHP_METHOD(GSSAPIChannelBinding, getAcceptorAddressType);
+PHP_METHOD(GSSAPIChannelBinding, setAcceptorAddress);
+PHP_METHOD(GSSAPIChannelBinding, getApplicationData);
+PHP_METHOD(GSSAPIChannelBinding, setApplicationData);
+
+
+typedef struct _krb5_gss_channel_object {
+	struct gss_channel_bindings_struct data;
+        zend_object std;
+} krb5_gss_channel_object;
+
+int php_krb5_register_gss_channel();
+zend_object* php_krb5_gss_channel_object_new(zend_class_entry *ce);
+void php_krb5_gss_channel_object_free(zend_object *obj);
+
+
 void php_krb5_gssapi_handle_error(OM_uint32 major, OM_uint32 minor TSRMLS_DC);
 int php_krb5_gssapi_register_classes(TSRMLS_D);
 int php_krb5_gssapi_shutdown(TSRMLS_D);
