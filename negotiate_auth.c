@@ -40,6 +40,7 @@ typedef struct _krb5_negotiate_auth_object {
 	gss_name_t servname;
 	gss_name_t authed_user;
 	gss_cred_id_t delegated;
+	gss_channel_bindings_t chan_bindings;
 #ifdef HAVE_GSS_ACQUIRE_CRED_FROM
 	gss_key_value_set_desc cred_store;
 #endif
@@ -64,6 +65,7 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth__construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, keytab)
 	ZEND_ARG_INFO(0, spn)
+	ZEND_ARG_OBJ_INFO(0, channel, GSSAPIChannelBinding, 0)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth_getDelegatedCredentials, 0, 0, 1)
@@ -133,6 +135,7 @@ static void setup_negotiate_auth(krb5_negotiate_auth_object *object TSRMLS_DC) {
 	object->authed_user = GSS_C_NO_NAME;
 	object->servname = GSS_C_NO_NAME;
 	object->delegated = GSS_C_NO_CREDENTIAL;
+	object->chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
 }
 
 /* {{{ */
@@ -195,7 +198,7 @@ int php_krb5_negotiate_auth_register_classes(TSRMLS_D) {
 
 
 /** KRB5NegotiateAuth Methods **/
-/* {{{ proto bool KRB5NegotiateAuth::__construct( string $keytab [, string $spn ] )
+/* {{{ proto bool KRB5NegotiateAuth::__construct( string $keytab [, string $spn [, GSSAPIChannelBinding binding]] )
    Initialize KRB5NegotitateAuth object with a keytab to use  */
 PHP_METHOD(KRB5NegotiateAuth, __construct)
 {
@@ -206,15 +209,22 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	zval *spn = NULL;
 	gss_buffer_desc nametmp;
 	strsize_t keytab_len = 0;
+	gss_channel_bindings_t chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
+	zval *zchannel = NULL;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH "|z", &keytab, &keytab_len, &spn) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH "|z/O", &keytab, &keytab_len, &spn, &zchannel, krb5_ce_gss_channel) == FAILURE) {
 		RETURN_FALSE;
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
+	if (zchannel != NULL) {
+		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(zchannel);
+		if ( zchannelobj != NULL ) {
+			chan_bindings = &zchannelobj->data;
+		}
+	}
 	object = KRB5_THIS_NEGOTIATE_AUTH;
-
 
 #ifdef HAVE_GSS_ACQUIRE_CRED_FROM
 	char *kt_name = estrdup(keytab);
@@ -224,6 +234,8 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	object->cred_store.elements = keytab_element;
 	object->cred_store.count = 1;
 #endif
+
+	object->chan_bindings = chan_bindings;
 
 	if ( spn != NULL && Z_TYPE_P((spn))==IS_LONG && zval_get_long(spn TSRMLS_CC) == 0) {
 		object->servname = GSS_C_NO_NAME;
@@ -399,7 +411,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
                                        &gss_context,
                                        server_creds,
                                        &input_token,
-                                       GSS_C_NO_CHANNEL_BINDINGS,
+                                       object->chan_bindings,
                                        &object->authed_user,
                                        NULL,
                                        &output_token,
