@@ -40,7 +40,8 @@ typedef struct _krb5_negotiate_auth_object {
 	gss_name_t servname;
 	gss_name_t authed_user;
 	gss_cred_id_t delegated;
-	gss_channel_bindings_t chan_bindings;
+	zend_bool channel_bound;
+	zval* chan_bindings;
 #ifdef HAVE_GSS_ACQUIRE_CRED_FROM
 	gss_key_value_set_desc cred_store;
 #endif
@@ -76,12 +77,14 @@ PHP_METHOD(KRB5NegotiateAuth, __construct);
 PHP_METHOD(KRB5NegotiateAuth, doAuthentication);
 PHP_METHOD(KRB5NegotiateAuth, getDelegatedCredentials);
 PHP_METHOD(KRB5NegotiateAuth, getAuthenticatedUser);
+PHP_METHOD(KRB5NegotiateAuth, isChannelBound);
 
 static zend_function_entry krb5_negotiate_auth_functions[] = {
 	PHP_ME(KRB5NegotiateAuth, __construct,             arginfo_KRB5NegotiateAuth__construct,              ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(KRB5NegotiateAuth, doAuthentication,        arginfo_KRB5NegotiateAuth_none,                    ZEND_ACC_PUBLIC)
 	PHP_ME(KRB5NegotiateAuth, getDelegatedCredentials, arginfo_KRB5NegotiateAuth_getDelegatedCredentials, ZEND_ACC_PUBLIC)
 	PHP_ME(KRB5NegotiateAuth, getAuthenticatedUser,    arginfo_KRB5NegotiateAuth_none,                    ZEND_ACC_PUBLIC)
+	PHP_ME(KRB5NegotiateAuth, isChannelBound,          arginfo_KRB5NegotiateAuth_none,                    ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -94,6 +97,12 @@ static void php_krb5_negotiate_auth_object_free_data(krb5_negotiate_auth_object*
 	if ( object->servname ) {
 		free(object->servname);
 	}
+
+	if ( object->chan_bindings ) {
+		Z_DELREF_P(object->chan_bindings);
+		object->chan_bindings = NULL;
+	}
+
 	if ( object->delegated != GSS_C_NO_CREDENTIAL ) {
 		gss_release_cred(&minor_status, &object->delegated);
 	}
@@ -135,7 +144,7 @@ static void setup_negotiate_auth(krb5_negotiate_auth_object *object TSRMLS_DC) {
 	object->authed_user = GSS_C_NO_NAME;
 	object->servname = GSS_C_NO_NAME;
 	object->delegated = GSS_C_NO_CREDENTIAL;
-	object->chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
+	object->chan_bindings = NULL;
 }
 
 /* {{{ */
@@ -209,7 +218,6 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	zval *spn = NULL;
 	gss_buffer_desc nametmp;
 	strsize_t keytab_len = 0;
-	gss_channel_bindings_t chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
 	zval *zchannel = NULL;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
@@ -218,12 +226,7 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 
-	if (zchannel != NULL) {
-		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(zchannel);
-		if ( zchannelobj != NULL ) {
-			chan_bindings = &zchannelobj->data;
-		}
-	}
+
 	object = KRB5_THIS_NEGOTIATE_AUTH;
 
 #ifdef HAVE_GSS_ACQUIRE_CRED_FROM
@@ -235,7 +238,11 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	object->cred_store.count = 1;
 #endif
 
-	object->chan_bindings = chan_bindings;
+	if (zchannel != NULL) {
+		Z_ADDREF_P(zchannel);
+		object->chan_bindings = zchannel;
+	}
+
 
 	if ( spn != NULL && Z_TYPE_P((spn))==IS_LONG && zval_get_long(spn TSRMLS_CC) == 0) {
 		object->servname = GSS_C_NO_NAME;
@@ -316,6 +323,7 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 	gss_buffer_desc input_token;
 	gss_buffer_desc output_token;
 	gss_cred_id_t server_creds = GSS_C_NO_CREDENTIAL;
+	gss_channel_bindings_t chan_bindings = GSS_C_NO_CHANNEL_BINDINGS;
 
 	if (zend_parse_parameters_none() == FAILURE) {
 		RETURN_FALSE;
@@ -407,11 +415,16 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 	input_token.length = token->len;
 	input_token.value = token->val;
 
+	if ( object->chan_bindings != NULL ) {
+		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(object->chan_bindings);
+                chan_bindings = &zchannelobj->data;
+	}
+
 	status = gss_accept_sec_context(   &minor_status,
                                        &gss_context,
                                        server_creds,
                                        &input_token,
-                                       object->chan_bindings,
+                                       chan_bindings,
                                        &object->authed_user,
                                        NULL,
                                        &output_token,
@@ -423,6 +436,12 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 	if(!(flags & GSS_C_DELEG_FLAG)) {
 		object->delegated = GSS_C_NO_CREDENTIAL;
 	}
+
+#ifdef GSS_C_CHANNEL_BOUND_FLAG
+	if((flags & GSS_C_CHANNEL_BOUND_FLAG) == GSS_C_CHANNEL_BOUND_FLAG) {
+		object->channel_bound = TRUE;
+	}
+#endif
 
 	if ( server_creds != GSS_C_NO_CREDENTIAL ) {
 
@@ -498,6 +517,23 @@ PHP_METHOD(KRB5NegotiateAuth, getAuthenticatedUser)
 
 	_ZVAL_STRINGL(return_value, username_tmp.value, username_tmp.length);
 	gss_release_buffer(&minor_status, &username_tmp);
+} /* }}} */
+
+/* {{{ proto bool KRB5NegotiateAuth::isChannelBound(  )
+   Check whether channel binding was successful  */
+PHP_METHOD(KRB5NegotiateAuth, isChannelBound)
+{
+	krb5_negotiate_auth_object *object;
+	if (zend_parse_parameters_none() == FAILURE) {
+		RETURN_FALSE;
+	}
+	object = KRB5_THIS_NEGOTIATE_AUTH;
+
+	if(!object || !object->channel_bound) {
+		RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
 } /* }}} */
 
 /* {{{ proto void KRB5NegotiateAuth::getDelegatedCredentials( KRB5CCache $ccache )
