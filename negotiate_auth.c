@@ -66,7 +66,7 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth__construct, 0, 0, 1)
 	ZEND_ARG_INFO(0, keytab)
 	ZEND_ARG_INFO(0, spn)
-	ZEND_ARG_OBJ_INFO(0, channel, GSSAPIChannelBinding, 0)
+	ZEND_ARG_OBJ_INFO(0, channel, GSSAPIChannelBinding, 1)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_KRB5NegotiateAuth_getDelegatedCredentials, 0, 0, 1)
@@ -221,7 +221,7 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 	zval *zchannel = NULL;
 
 	KRB5_SET_ERROR_HANDLING(EH_THROW);
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH "|z/O", &keytab, &keytab_len, &spn, &zchannel, krb5_ce_gss_channel) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, ARG_PATH "|z/O!", &keytab, &keytab_len, &spn, &zchannel, krb5_ce_gss_channel) == FAILURE) {
 		RETURN_FALSE;
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
