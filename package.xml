@@ -49,6 +49,7 @@ Documentation:
    <file role="src" name="php_krb5_kadm.h" />
    <file role="src" name="php_krb5_gssapi.h" />
    <file role="src" name="php_krb5_compat.h" />
+   <file role="src" name="channel.c" />
    <file role="src" name="krb5.c" />
    <file role="src" name="gssapi.c" />
    <file role="src" name="kadm.c" />
