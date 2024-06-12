@@ -49,6 +49,7 @@ Documentation:
    <file role="src" name="php_krb5_kadm.h" />
    <file role="src" name="php_krb5_gssapi.h" />
    <file role="src" name="php_krb5_compat.h" />
+   <file role="src" name="channel.c" />
    <file role="src" name="krb5.c" />
    <file role="src" name="gssapi.c" />
    <file role="src" name="kadm.c" />
@@ -84,7 +85,7 @@ Documentation:
  <dependencies>
   <required>
    <php>
-    <min>5.2.0</min>
+    <min>7.0.0</min>
    </php>
    <pearinstaller>
     <min>1.4.8</min>
