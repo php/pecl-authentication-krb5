@@ -1,16 +1,16 @@
 /**
 * Copyright (c) 2007 Moritz Bechler
-* 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 * copies of the Software, and to permit persons to whom the Software is
 * furnished to do so, subject to the following conditions:
-* 
+*
 * The above copyright notice and this permission notice shall be included in
 * all copies or substantial portions of the Software.
-* 
+*
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -92,24 +92,6 @@ static zend_function_entry krb5_kadm5_policy_functions[] = {
 
 zend_object_handlers krb5_kadm5_policy_handlers;
 
-#if PHP_MAJOR_VERSION < 7
-static void php_krb5_kadm5_policy_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
-{
-	krb5_kadm5_policy_object *object = (krb5_kadm5_policy_object*)obj;
-
-
-	if(object->policy) {
-		efree(object->policy);
-	}
-
-	krb5_kadm5_object *conn = object->conn;
-	if(conn) {
-		kadm5_free_policy_ent(conn->handle, &object->data);
-	}
-	zend_object_std_dtor(&(object->std) TSRMLS_CC);
-	efree(object);
-}
-#else
 static void php_krb5_kadm5_policy_object_free(zend_object *obj) {
 	krb5_kadm5_policy_object *object = (krb5_kadm5_policy_object*)((char *)obj - XtOffsetOf(krb5_kadm5_policy_object, std));
 	krb5_kadm5_object *conn = object->conn;
@@ -121,7 +103,6 @@ static void php_krb5_kadm5_policy_object_free(zend_object *obj) {
 	}
 	zend_object_std_dtor(obj);
 }
-#endif
 
 int php_krb5_register_kadm5_policy(TSRMLS_D) {
 	zend_class_entry kadm5_policy;
@@ -129,43 +110,12 @@ int php_krb5_register_kadm5_policy(TSRMLS_D) {
 	krb5_ce_kadm5_policy = zend_register_internal_class(&kadm5_policy TSRMLS_CC);
 	krb5_ce_kadm5_policy->create_object = php_krb5_kadm5_policy_object_new;
 	memcpy(&krb5_kadm5_policy_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-#if PHP_MAJOR_VERSION >= 7
 	krb5_kadm5_policy_handlers.offset = XtOffsetOf(krb5_kadm5_policy_object, std);
 	krb5_kadm5_policy_handlers.free_obj = php_krb5_kadm5_policy_object_free;
-#endif
 	return SUCCESS;
 }
 
 
-#if PHP_MAJOR_VERSION < 7
-zend_object_value php_krb5_kadm5_policy_object_new(zend_class_entry *ce TSRMLS_DC) 
-{
-	zend_object_value retval;
-	krb5_kadm5_policy_object *object;
-	extern zend_object_handlers krb5_kadm5_policy_handlers;
-
-	object = emalloc(sizeof(krb5_kadm5_policy_object));
-
-	memset(&object->data, 0, sizeof(kadm5_policy_ent_rec));
-	object->conn = NULL;
-	object->update_mask = 0;
-	
-	zend_object_std_init(&(object->std), ce TSRMLS_CC);
-
-#if PHP_VERSION_ID < 50399
-	zend_hash_copy(object->std.properties, &ce->default_properties,
-					(copy_ctor_func_t) zval_add_ref, NULL, 
-					sizeof(zval*));
-#else
-	object_properties_init(&(object->std), ce);
-#endif
-
-	retval.handle = zend_objects_store_put(object, php_krb5_kadm5_policy_object_dtor, NULL, NULL TSRMLS_CC);
-
-	retval.handlers = &krb5_kadm5_policy_handlers;
-	return retval;
-}
-#else
 zend_object* php_krb5_kadm5_policy_object_new(zend_class_entry *ce TSRMLS_DC) {
 	krb5_kadm5_policy_object *object = ecalloc(1, sizeof(krb5_kadm5_policy_object) + zend_object_properties_size(ce));
 	zend_object_std_init(&object->std, ce TSRMLS_CC);
@@ -173,7 +123,6 @@ zend_object* php_krb5_kadm5_policy_object_new(zend_class_entry *ce TSRMLS_DC) {
 	object->std.handlers = &krb5_kadm5_policy_handlers;
 	return &object->std;
 }
-#endif
 
 /* {{{ proto KADM5Policy::__construct(string $policy [, KADM5 $conn ])
  */
@@ -201,23 +150,6 @@ PHP_METHOD(KADM5Policy, __construct)
 		zend_update_property(krb5_ce_kadm5_principal, OBJ_FOR_PROP(getThis()), "connection", sizeof("connection"), connobj TSRMLS_CC);
 		this->conn = KRB5_KADM(connobj);
 
-#if PHP_MAJOR_VERSION < 7
-		zval *dummy_retval, *func;
-		MAKE_STD_ZVAL(func);
-		_ZVAL_STRING(func, "load");
-		MAKE_STD_ZVAL(dummy_retval);
-		if(call_user_function(&krb5_ce_kadm5_policy->function_table, 
-								&getThis(), func, dummy_retval, 0, 
-								NULL TSRMLS_CC) == FAILURE) {
-			zval_ptr_dtor(&func);
-			zval_ptr_dtor(&dummy_retval);
-			zend_throw_exception(NULL, "Failed to update KADM5Policy object", 0 TSRMLS_CC);
-			return;
-		}
-
-		zval_ptr_dtor(&func);
-		zval_ptr_dtor(&dummy_retval);
-#else	
 		zval func;
 		zval dummy_retval;
 		_ZVAL_STRING(&func, "load");
@@ -230,16 +162,11 @@ PHP_METHOD(KADM5Policy, __construct)
 		}
 		zval_ptr_dtor(&func);
 		zval_ptr_dtor(&dummy_retval);
-#endif
 	}
 }
 /* }}} */
 
-#if PHP_MAJOR_VERSION < 7
-#define KRB5_KADM_POLICY_GET_CONNECTION zend_read_property(krb5_ce_kadm5_policy, getThis(), "connection", sizeof("connection"),1 TSRMLS_CC);
-#else
 #define KRB5_KADM_POLICY_GET_CONNECTION zend_read_property(krb5_ce_kadm5_policy, OBJ_FOR_PROP(getThis()), "connection", sizeof("connection"),1, NULL);
-#endif
 
 /* {{{ proto KADM5Policy::load()
  */
@@ -258,7 +185,7 @@ PHP_METHOD(KADM5Policy, load)
 		zend_throw_exception(NULL, "No valid connection available", 0 TSRMLS_CC);
 		return;
 	}
-	
+
 	kadm5 = KRB5_KADM(connobj);
 	if(!kadm5) {
 		zend_throw_exception(NULL, "No valid connection available", 0 TSRMLS_CC);
@@ -399,7 +326,7 @@ PHP_METHOD(KADM5Policy, setMinPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long min_life;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &min_life) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -429,7 +356,7 @@ PHP_METHOD(KADM5Policy, setMaxPasswordLife)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long max_life;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &max_life) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -460,7 +387,7 @@ PHP_METHOD(KADM5Policy, setMinPasswordLength)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long min_length;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &min_length) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -490,7 +417,7 @@ PHP_METHOD(KADM5Policy, setMinPasswordClasses)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long min_classes;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &min_classes) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -520,7 +447,7 @@ PHP_METHOD(KADM5Policy, setHistoryNum)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long history_num;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &history_num) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -564,7 +491,7 @@ PHP_METHOD(KADM5Policy, setLockoutDuration)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long duration;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &duration) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -594,7 +521,7 @@ PHP_METHOD(KADM5Policy, setMaxFailureCount)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long maxfail;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &maxfail) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -626,7 +553,7 @@ PHP_METHOD(KADM5Policy, setFailureInterval)
 {
 	krb5_kadm5_policy_object *obj = KRB5_THIS_KADM_POLICY;
 	zend_long failcnt_interval;
-	
+
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &failcnt_interval) == FAILURE) {
 		RETURN_FALSE;
 	}
