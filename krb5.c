@@ -26,7 +26,7 @@
  * 				renew(), getTktAttrs() methods; support more
  * 				options to initKeytab/Password(); check only
  * 				primary TGT in isValid(); fix some bugs.
- * 				
+ *
  * 2010-04-11 Moritz Bechler	RC2 release
  */
 
@@ -146,12 +146,8 @@ krb5_error_code php_krb5_display_error(krb5_context ctx, krb5_error_code code, c
 /*  Initialization functions */
 zend_object_handlers krb5_ccache_handlers;
 
-#if PHP_MAJOR_VERSION < 7
-zend_object_value php_krb5_ticket_object_new( zend_class_entry *ce TSRMLS_DC);
-#else
 zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC);
 static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC);
-#endif
 
 PHP_MINIT_FUNCTION(krb5)
 {
@@ -161,10 +157,8 @@ PHP_MINIT_FUNCTION(krb5)
 	krb5_ce_ccache = zend_register_internal_class(&krb5_ccache TSRMLS_CC);
 	krb5_ce_ccache->create_object = php_krb5_ticket_object_new;
 	memcpy(&krb5_ccache_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-#if PHP_MAJOR_VERSION >= 7
 	krb5_ccache_handlers.offset = XtOffsetOf(krb5_ccache_object, std);
 	krb5_ccache_handlers.free_obj = php_krb5_ccache_object_free;
-#endif
 
 #ifdef HAVE_KADM5
 	if(php_krb5_kadm5_register_classes(TSRMLS_C) != SUCCESS) {
@@ -188,7 +182,7 @@ PHP_MINIT_FUNCTION(krb5)
 	REGISTER_LONG_CONSTANT("GSS_C_ACCEPT", GSS_C_ACCEPT, CONST_CS | CONST_PERSISTENT );
 
 	REGISTER_LONG_CONSTANT("GSS_C_NO_NAME", 0, CONST_CS | CONST_PERSISTENT );
-	
+
 #ifdef KRB5_TL_DB_ARGS
 	REGISTER_LONG_CONSTANT("KRB5_TL_DB_ARGS", KRB5_TL_DB_ARGS, CONST_CS | CONST_PERSISTENT );
 #endif
@@ -249,26 +243,6 @@ PHP_MINFO_FUNCTION(krb5)
 
 /*  Constructors/Destructors */
 /* {{{ */
-#if PHP_MAJOR_VERSION < 7
-static void php_krb5_ccache_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
-{
-	krb5_ccache_object *ticket = (krb5_ccache_object*)obj;
-
-
-	if(ticket) {
-		OBJECT_STD_DTOR(ticket->std);
-
-		krb5_cc_destroy(ticket->ctx, ticket->cc);
-		krb5_free_context(ticket->ctx);
-
-		if(ticket->keytab) {
-			efree(ticket->keytab);
-		}
-
-		efree(ticket);
-	}
-}
-#else
 static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC)
 {
 	krb5_ccache_object *ticket = (krb5_ccache_object*)((char *)obj - XtOffsetOf(krb5_ccache_object, std));
@@ -280,54 +254,10 @@ static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC)
 	}
 	zend_object_std_dtor(obj);
 }
-#endif
 /* }}} */
 
 
 /* {{{ */
-#if PHP_MAJOR_VERSION < 7
-zend_object_value php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
-{
-	zend_object_value retval;
-	zend_object *failed;
-	krb5_ccache_object *object;
-	krb5_error_code ret = 0;
-
-	object = emalloc(sizeof(krb5_ccache_object));
-	memset(object, 0, sizeof(krb5_ccache_object));
-
-	/* intialize context */
-	if((ret = krb5_init_context(&object->ctx))) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot initialize Kerberos5 context");
-		efree(object);		
-		return zend_objects_new(&failed, ce TSRMLS_CC);
-	}
-
-	// initialize random ccache
-	if((ret = krb5_cc_new_unique(object->ctx, "MEMORY", "", &object->cc))) {
-		const char *msg = krb5_get_error_message(object->ctx,ret);
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot open credential cache: %s", msg);
-		krb5_free_error_message(object->ctx, msg);
-		krb5_free_context(object->ctx);
-		efree(object);		
-		return zend_objects_new(&failed, ce TSRMLS_CC);
-	}
-
-
-	INIT_STD_OBJECT(object->std, ce);
-#if PHP_VERSION_ID < 50399
-	zend_hash_copy(object->std.properties, &ce->default_properties,
-	        		(copy_ctor_func_t) zval_add_ref, NULL,
-					sizeof(zval*));
-#else
-	object_properties_init(&(object->std), ce);
-#endif
-
-	retval.handle = zend_objects_store_put(object, php_krb5_ccache_object_dtor, NULL, NULL TSRMLS_CC);
-	retval.handlers = &krb5_ccache_handlers;
-	return retval;
-}
-#else
 zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 {
 	krb5_ccache_object *object;
@@ -338,7 +268,7 @@ zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 	/* intialize context */
 	if((ret = krb5_init_context(&object->ctx))) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot initialize Kerberos5 context");
-		efree(object);		
+		efree(object);
 		return zend_objects_new(ce);
 	}
 
@@ -348,7 +278,7 @@ zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Cannot open credential cache: %s", msg);
 		krb5_free_error_message(object->ctx, msg);
 		krb5_free_context(object->ctx);
-		efree(object);		
+		efree(object);
 		return zend_objects_new(ce);
 	}
 
@@ -357,7 +287,6 @@ zend_object *php_krb5_ticket_object_new(zend_class_entry *ce TSRMLS_DC)
 	object->std.handlers = &krb5_ccache_handlers;
 	return &object->std;
 }
-#endif
 /* }}} */
 
 /* Helper functions */
@@ -404,7 +333,7 @@ static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *c
 	if (tmp != NULL) {
 		krb5_get_init_creds_opt_set_renew_life(cred_opts, zval_get_long(tmp TSRMLS_CC));
 	}
-	
+
 	/* service_name (krb5 arg "in_tkt_service") */
 	tmp = zend_compat_hash_find(HASH_OF(opts), "service_name", sizeof("service_name"));
 	if (tmp != NULL) {
@@ -885,17 +814,9 @@ PHP_METHOD(KRB5CCache, initKeytab)
 		RETURN_FALSE;
 	}
 
-#if PHP_VERSION_ID < 50399
-	if ( (PG(safe_mode) &&
-			!php_checkuid(skeytab, NULL, CHECKUID_CHECK_FILE_AND_DIR)) ||
-		php_check_open_basedir(skeytab TSRMLS_CC)) {
-		RETURN_FALSE;
-	}
-#else
 	if ( php_check_open_basedir(skeytab TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
-#endif
 
     do {
 	memset(&princ, 0, sizeof(princ));
@@ -1306,9 +1227,6 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 #ifndef INET6_ADDRSTRLEN
 					_add_next_index_string(addrlist, inet_ntoa(ipaddr));
 				}
-#if 0
- { match curlies
-#endif
 #else /* ! INET6_ADDRSTRLEN */
 					if (inet_ntop(AF_INET, &ipaddr, straddr, sizeof(straddr))) {
 						_add_next_index_string(addrlist, straddr);
@@ -1425,7 +1343,6 @@ PHP_METHOD(KRB5CCache, renew)
    Changes a principal's password using kpasswd */
 PHP_METHOD(KRB5CCache, changePassword)
 {
-	
 	krb5_error_code retval = 0;
 	krb5_context ctx = NULL;
 	char *errstr = "";
