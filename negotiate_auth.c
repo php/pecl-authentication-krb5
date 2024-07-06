@@ -155,7 +155,7 @@ zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS
 
 	setup_negotiate_auth(object TSRMLS_CC);
 
-	ZVAL_NULL(object->channel_binding);
+
 	INIT_STD_OBJECT(object->std, ce);
 
 #if PHP_VERSION_ID < 50399
@@ -165,6 +165,7 @@ zend_object_value php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS
 #else
 	object_properties_init(&(object->std), ce);
 #endif
+	ZVAL_NULL(&object->chan_bindings);
 
 	retval.handle = zend_objects_store_put(object, php_krb5_negotiate_auth_object_dtor, NULL, NULL TSRMLS_CC);
 
@@ -181,6 +182,7 @@ zend_object *php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	zend_object_std_init(&object->std, ce TSRMLS_CC);
 	object_properties_init(&object->std, ce);
+	ZVAL_NULL(&object->chan_bindings);
 	object->std.handlers = &krb5_negotiate_auth_handlers;
 	return &object->std;
 }
