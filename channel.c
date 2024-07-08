@@ -217,8 +217,12 @@ PHP_METHOD(GSSAPIChannelBinding, setApplicationData)
 	} else {
 		zend_string *data = zval_get_string(zdata);
 		object->data.application_data.length = data->len;
+		if ( object->data.application_data.value ) {
+                        efree(object->data.application_data.value);
+		}
 		object->data.application_data.value = emalloc(data->len);
 		memcpy(object->data.application_data.value, data->val, data->len);
+		zend_string_release(data);
 	}
 }
 /* }}} */
@@ -247,8 +251,12 @@ PHP_METHOD(GSSAPIChannelBinding, setInitiatorAddress)
 	} else {
 		zend_string *data = zval_get_string(zdata);
 		object->data.initiator_address.length = data->len;
+		if ( object->data.initiator_address.value ) {
+			efree(object->data.initiator_address.value);
+		}
 		object->data.initiator_address.value = emalloc(data->len);
 		memcpy(object->data.initiator_address.value, data->val, data->len);
+		zend_string_release(data);
 	}
 }
 /* }}} */
@@ -277,8 +285,12 @@ PHP_METHOD(GSSAPIChannelBinding, setAcceptorAddress)
 	} else {
 		zend_string *data = zval_get_string(zdata);
 		object->data.acceptor_address.length = data->len;
+		if ( object->data.acceptor_address.value ) {
+			efree(object->data.acceptor_address.value);
+		}
 		object->data.acceptor_address.value = emalloc(data->len);
 		memcpy(object->data.acceptor_address.value, data->val, data->len);
+		zend_string_release(data);
 	}
 }
 /* }}} */

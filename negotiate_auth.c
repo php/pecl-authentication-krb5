@@ -38,7 +38,7 @@ typedef struct _krb5_negotiate_auth_object {
 	gss_name_t authed_user;
 	gss_cred_id_t delegated;
 	zend_bool channel_bound;
-	zval* chan_bindings;
+	zval chan_bindings;
 #ifdef HAVE_GSS_ACQUIRE_CRED_FROM
 	gss_key_value_set_desc cred_store;
 #endif
@@ -88,9 +88,8 @@ static void php_krb5_negotiate_auth_object_free_data(krb5_negotiate_auth_object*
 		free(object->servname);
 	}
 
-	if ( object->chan_bindings ) {
-		Z_DELREF_P(object->chan_bindings);
-		object->chan_bindings = NULL;
+	if ( Z_TYPE(object->chan_bindings) != IS_NULL ) {
+		zval_ptr_dtor(&object->chan_bindings);
 	}
 
 	if ( object->delegated != GSS_C_NO_CREDENTIAL ) {
@@ -124,7 +123,6 @@ static void setup_negotiate_auth(krb5_negotiate_auth_object *object TSRMLS_DC) {
 	object->authed_user = GSS_C_NO_NAME;
 	object->servname = GSS_C_NO_NAME;
 	object->delegated = GSS_C_NO_CREDENTIAL;
-	object->chan_bindings = NULL;
 }
 
 /* {{{ */
@@ -137,6 +135,7 @@ zend_object *php_krb5_negotiate_auth_object_new(zend_class_entry *ce TSRMLS_DC)
 
 	zend_object_std_init(&object->std, ce TSRMLS_CC);
 	object_properties_init(&object->std, ce);
+	ZVAL_NULL(&object->chan_bindings);
 	object->std.handlers = &krb5_negotiate_auth_handlers;
 	return &object->std;
 }
@@ -191,8 +190,7 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 #endif
 
 	if (zchannel != NULL) {
-		Z_ADDREF_P(zchannel);
-		object->chan_bindings = zchannel;
+		ZVAL_OBJ_COPY(&object->chan_bindings, Z_OBJ_P(zchannel));
 	}
 
 
@@ -356,8 +354,8 @@ PHP_METHOD(KRB5NegotiateAuth, doAuthentication)
 	input_token.length = token->len;
 	input_token.value = token->val;
 
-	if ( object->chan_bindings != NULL ) {
-		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(object->chan_bindings);
+	if ( Z_TYPE(object->chan_bindings) != IS_NULL ) {
+		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(&object->chan_bindings);
                 chan_bindings = &zchannelobj->data;
 	}
 
