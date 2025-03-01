@@ -1,16 +1,16 @@
 /**
 * Copyright (c) 2023 Moritz Bechler
-* 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 * copies of the Software, and to permit persons to whom the Software is
 * furnished to do so, subject to the following conditions:
-* 
+*
 * The above copyright notice and this permission notice shall be included in
 * all copies or substantial portions of the Software.
-* 
+*
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -120,7 +120,7 @@ PHP_METHOD(GSSAPIChannelBinding, getInitiatorAddress)
 		RETURN_NULL();
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
-	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;	
+	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;
 	if ( object->data.initiator_address.value ) {
 		_RETVAL_STRINGL((char*)object->data.initiator_address.value, object->data.initiator_address.length);
 	} else {
@@ -139,7 +139,7 @@ PHP_METHOD(GSSAPIChannelBinding, getInitiatorAddressType)
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;
-	
+
 	RETURN_LONG(object->data.initiator_addrtype);
 }
 /* }}} */
@@ -172,7 +172,7 @@ PHP_METHOD(GSSAPIChannelBinding, getAcceptorAddressType)
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;
-	
+
 	RETURN_LONG(object->data.acceptor_addrtype);
 }
 /* }}} */
@@ -192,7 +192,7 @@ PHP_METHOD(GSSAPIChannelBinding, getApplicationData)
 		_RETVAL_STRINGL((char*)object->data.application_data.value, object->data.application_data.length);
 	} else {
 		RETURN_NULL();
-	}	
+	}
 }
 /* }}} */
 
@@ -208,7 +208,7 @@ PHP_METHOD(GSSAPIChannelBinding, setApplicationData)
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;
-	if ( !zdata ) { 
+	if ( !zdata ) {
 		object->data.application_data.length = 0;
 		if ( object->data.application_data.value ) {
 			efree(object->data.application_data.value);
@@ -242,7 +242,7 @@ PHP_METHOD(GSSAPIChannelBinding, setInitiatorAddress)
 	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;
 
 	object->data.initiator_addrtype = type;
-	if ( !zdata ) { 
+	if ( !zdata ) {
 		object->data.initiator_address.length = 0;
 		if ( object->data.initiator_address.value ) {
 			efree(object->data.initiator_address.value);
@@ -274,9 +274,9 @@ PHP_METHOD(GSSAPIChannelBinding, setAcceptorAddress)
 	}
 	KRB5_SET_ERROR_HANDLING(EH_NORMAL);
 	krb5_gss_channel_object *object = KRB5_THIS_GSS_CHANNEL;
-	
+
 	object->data.acceptor_addrtype = type;
-	if ( !zdata ) { 
+	if ( !zdata ) {
 		object->data.acceptor_address.length = 0;
 		if ( object->data.acceptor_address.value ) {
 			efree(object->data.acceptor_address.value);
@@ -294,5 +294,3 @@ PHP_METHOD(GSSAPIChannelBinding, setAcceptorAddress)
 	}
 }
 /* }}} */
-
-
