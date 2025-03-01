@@ -22,10 +22,10 @@ Documentation:
   <email>mbechler@eenterphace.org</email>
   <active>yes</active>
  </lead>
- <date>2024-06-12</date>
- <time>18:00:00</time>
+ <date>2025-03-01</date>
+ <time>11:00:00</time>
  <version>
-  <release>1.2.2</release>
+  <release>1.2.3</release>
   <api>0.1.1</api>
  </version>
  <stability>
@@ -34,9 +34,7 @@ Documentation:
  </stability>
  <license uri="http://www.opensource.org/licenses/MIT">MIT License</license>
  <notes>
-- [FEATURE] Implement channel bindings support
-- [API] Allow passing null channel binding in NegotiateAuth (1.2.1)
-- [PACKAGING] Fix PECL packaging (missing channel.c) and raise minimum version (1.2.2)
+- [BUG] Fix crash with empty channel binding argument
  </notes>
  <contents>
   <dir name="/">
