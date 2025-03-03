@@ -240,7 +240,12 @@ PHP_METHOD(KRB5NegotiateAuth, __construct)
 #endif
 
 	if (zchannel != NULL) {
+#if PHP_VERSION_ID < 80000
+		Z_ADDREF_P(zchannel);
+		ZVAL_OBJ(&object->chan_bindings, Z_OBJ_P(zchannel));
+#else
 		ZVAL_OBJ_COPY(&object->chan_bindings, Z_OBJ_P(zchannel));
+#endif
 	}
 
 
