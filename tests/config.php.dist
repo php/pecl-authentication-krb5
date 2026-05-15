@@ -22,6 +22,6 @@ if(file_exists(dirname(__FILE__) . '/krb5.ini')) {
 	$use_config = true;
 }
 
-error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
+error_reporting(E_ALL & ~E_DEPRECATED);
 return true;
 ?>
