@@ -21,6 +21,9 @@
 **/
 
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
 #include "php.h"
 #include "php_krb5.h"
 
@@ -94,6 +97,11 @@ ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_unwrapArgs, 0, 0, 2)
 	ZEND_ARG_INFO(1, output)
 ZEND_END_ARG_INFO()
 
+#ifdef HAVE_GSS_EXPORT_CRED
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_importCredentials, 0, 0, 1)
+	ZEND_ARG_INFO(0, token)
+ZEND_END_ARG_INFO()
+#endif
 
 PHP_METHOD(GSSAPIContext, registerAcceptorIdentity);
 PHP_METHOD(GSSAPIContext, acquireCredentials);
@@ -105,6 +113,10 @@ PHP_METHOD(GSSAPIContext, verifyMic);
 PHP_METHOD(GSSAPIContext, wrap);
 PHP_METHOD(GSSAPIContext, unwrap);
 PHP_METHOD(GSSAPIContext, getTimeRemaining);
+#ifdef HAVE_GSS_EXPORT_CRED
+PHP_METHOD(GSSAPIContext, exportCredentials);
+PHP_METHOD(GSSAPIContext, importCredentials);
+#endif
 
 static zend_function_entry krb5_gssapi_context_functions[] = {
 	PHP_ME(GSSAPIContext, registerAcceptorIdentity, krb5_GSSAPIContext_registerAcceptorIdentity, ZEND_ACC_PUBLIC)
@@ -117,6 +129,10 @@ static zend_function_entry krb5_gssapi_context_functions[] = {
 	PHP_ME(GSSAPIContext, wrap,                     krb5_GSSAPIContext_wrapArgs,                 ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, unwrap,                   krb5_GSSAPIContext_unwrapArgs,               ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, getTimeRemaining,         krb5_GSSAPIContext_none,                     ZEND_ACC_PUBLIC)
+#ifdef HAVE_GSS_EXPORT_CRED
+	PHP_ME(GSSAPIContext, exportCredentials,        krb5_GSSAPIContext_none,                     ZEND_ACC_PUBLIC)
+	PHP_ME(GSSAPIContext, importCredentials,        krb5_GSSAPIContext_importCredentials,        ZEND_ACC_PUBLIC)
+#endif
 	PHP_FE_END
 };
 
@@ -1006,3 +1022,64 @@ PHP_METHOD(GSSAPIContext, unwrap)
 	status = gss_release_buffer(&minor_status, &output);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 } /* }}} */
+
+#ifdef HAVE_GSS_EXPORT_CRED
+/* {{{ proto string GSSAPIContext::exportCredentials( )
+   Exports the current credentials to an opaque token that can be stored or passed to another process */
+PHP_METHOD(GSSAPIContext, exportCredentials)
+{
+	OM_uint32 status = 0;
+	OM_uint32 minor_status = 0;
+	gss_buffer_desc token;
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+
+	memset(&token, 0, sizeof(token));
+
+	if (zend_parse_parameters_none() == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if (context->creds == GSS_C_NO_CREDENTIAL) {
+		zend_throw_exception(NULL, "No credentials to export", 0 TSRMLS_CC);
+		return;
+	}
+
+	status = gss_export_cred(&minor_status, context->creds, &token);
+	ASSERT_GSS_SUCCESS(status, minor_status,);
+
+	_RETVAL_STRINGL(token.value, token.length);
+
+	status = gss_release_buffer(&minor_status, &token);
+	ASSERT_GSS_SUCCESS(status, minor_status,);
+} /* }}} */
+
+/* {{{ proto bool GSSAPIContext::importCredentials( string $token )
+   Imports credentials from a token previously created by exportCredentials() */
+PHP_METHOD(GSSAPIContext, importCredentials)
+{
+	OM_uint32 status = 0;
+	OM_uint32 minor_status = 0;
+	gss_buffer_desc token;
+	gss_cred_id_t new_creds = GSS_C_NO_CREDENTIAL;
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+	strsize_t token_len = 0;
+
+	memset(&token, 0, sizeof(token));
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
+			&(token.value), &token_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+	token.length = token_len;
+
+	status = gss_import_cred(&minor_status, &token, &new_creds);
+	ASSERT_GSS_SUCCESS(status, minor_status,);
+
+	if (context->creds != GSS_C_NO_CREDENTIAL) {
+		gss_release_cred(&minor_status, &(context->creds));
+	}
+	context->creds = new_creds;
+
+	RETURN_TRUE;
+} /* }}} */
+#endif
