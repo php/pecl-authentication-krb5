@@ -10,7 +10,7 @@
         "configure-options": [
             {
                 "name": "with-krb5config",
-                "description": "Specify path to krb5config",
+                "description": "Use krb5config to determine library dependencies (defaults to pkgconfig), optionally specify path",
                 "needs-value": false
             },
             {
