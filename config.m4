@@ -40,30 +40,30 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 		KRB5_VERSION=`$PHP_KRB5CONFIG --version`
 	else
 
-		AC_MSG_CHECKING([for mit-krb5-gssapi via pkg-config])
-		if ${PKG_CONFIG} --exists mit-krb5-gssapi mit-krb5; then
+		AC_MSG_CHECKING([for krb5-gssapi via pkg-config])
+		if ${PKG_CONFIG} --exists krb5-gssapi krb5; then
 			AC_MSG_RESULT([yes])
 		else
-			AC_MSG_ERROR([mit-krb5-gssapi or mit-krb5 not found -- install libkrb5-dev or equivalent])
+			AC_MSG_ERROR([krb5-gssapi or krb5 not found -- install libkrb5-dev or equivalent])
 		fi
 
 		if test "$PHP_KRB5KADM" != "no"; then
 			dnl Try kadm-client via pkg-config; fall back to the MIT library name.
 			if ${PKG_CONFIG} --exists kadm-client 2>/dev/null; then
-				KRB5_LDFLAGS=`${PKG_CONFIG} --libs-only-L mit-krb5-gssapi mit-krb5 kadm-client`
-				KRB5_LIBS=`${PKG_CONFIG} --libs-only-l mit-krb5-gssapi mit-krb5 kadm-client`
-				KRB5_CFLAGS=`${PKG_CONFIG} --cflags mit-krb5-gssapi mit-krb5 kadm-client`
+				KRB5_LDFLAGS=`${PKG_CONFIG} --libs-only-L krb5-gssapi krb5 kadm-client`
+				KRB5_LIBS=`${PKG_CONFIG} --libs-only-l krb5-gssapi krb5 kadm-client`
+				KRB5_CFLAGS=`${PKG_CONFIG} --cflags krb5-gssapi krb5 kadm-client`
 			else
-				KRB5_LDFLAGS=`${PKG_CONFIG} --libs-only-L mit-krb5-gssapi mit-krb5`
-				KRB5_LIBS="`${PKG_CONFIG} --libs-only-l mit-krb5-gssapi mit-krb5` -lkadm5clnt_mit"
-				KRB5_CFLAGS=`${PKG_CONFIG} --cflags mit-krb5-gssapi mit-krb5`
+				KRB5_LDFLAGS=`${PKG_CONFIG} --libs-only-L krb5-gssapi krb5`
+				KRB5_LIBS="`${PKG_CONFIG} --libs-only-l krb5-gssapi krb5` -lkadm5clnt_mit"
+				KRB5_CFLAGS=`${PKG_CONFIG} --cflags krb5-gssapi krb5`
 			fi
 		else
-			KRB5_LDFLAGS=`${PKG_CONFIG} --libs-only-L mit-krb5-gssapi mit-krb5`
-			KRB5_LIBS=`${PKG_CONFIG} --libs-only-l mit-krb5-gssapi mit-krb5`
-			KRB5_CFLAGS=`${PKG_CONFIG} --cflags mit-krb5-gssapi mit-krb5`
+			KRB5_LDFLAGS=`${PKG_CONFIG} --libs-only-L krb5-gssapi krb5`
+			KRB5_LIBS=`${PKG_CONFIG} --libs-only-l krb5-gssapi krb5`
+			KRB5_CFLAGS=`${PKG_CONFIG} --cflags krb5-gssapi krb5`
 		fi
-		KRB5_VERSION=`${PKG_CONFIG} --modversion mit-krb5-gssapi`
+		KRB5_VERSION=`${PKG_CONFIG} --modversion krb5-gssapi`
 	fi
 
 	AC_MSG_CHECKING([for required linker flags])
