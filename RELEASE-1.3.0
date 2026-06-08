@@ -1,0 +1,2 @@
+- [CLEANUP] Drop pre-PHP8 support
+- [FEATURE] Add bindings for gss_export_cred/gss_import_cred

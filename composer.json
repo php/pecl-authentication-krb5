@@ -1,0 +1,23 @@
+{
+    "name": "pecl/krb5",
+    "type": "php-ext",
+    "description": "Kerberos/GSSPI and KAdmin bindings for PHP",
+    "require": {
+        "php": ">=8.0.0"
+    },
+    "php-ext": {
+        "extension-name": "krb5",
+        "configure-options": [
+            {
+                "name": "with-krb5config",
+                "description": "Specify path to krb5config",
+                "needs-value": false
+            },
+            {
+                "name": "with-krb5kadm",
+                "description": "Include support for administrative/KADM interface",
+                "needs-value": false
+            }
+        ]
+    }
+}
