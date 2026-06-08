@@ -29,14 +29,9 @@
 zend_class_entry *krb5_ce_gssapi_context;
 
 typedef struct _krb5_gssapi_context_object {
-#if PHP_MAJOR_VERSION < 7
-		zend_object std;
-#endif
 		gss_cred_id_t creds;
 		gss_ctx_id_t context;
-#if PHP_MAJOR_VERSION >= 7
 		zend_object std;
-#endif
 } krb5_gssapi_context_object;
 
 ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_registerAcceptorIdentity, 0, 0, 1)
@@ -174,29 +169,10 @@ void php_krb5_gssapi_handle_error(OM_uint32 major, OM_uint32 minor TSRMLS_DC)
 /* Setup functions */
 
 /* {{{ */
-#if PHP_MAJOR_VERSION < 7
-void php_krb5_gssapi_context_object_dtor(void *obj, zend_object_handle handle TSRMLS_DC)
-{
-	OM_uint32 minor_status = 0;
-	krb5_gssapi_context_object *object = (krb5_gssapi_context_object*)obj;
-	OBJECT_STD_DTOR(object->std);
-
-
-	if(object->creds != GSS_C_NO_CREDENTIAL) {
-		gss_release_cred(&minor_status, &object->creds);
-	}
-
-	if(object->context != GSS_C_NO_CONTEXT) {
-		gss_delete_sec_context(&minor_status, &object->context,  GSS_C_NO_BUFFER);
-	}
-
-	efree(object);
-}
-#else
 void php_krb5_gssapi_context_object_free(zend_object *obj TSRMLS_DC) {
 	OM_uint32 minor_status = 0;
 	krb5_gssapi_context_object *object = (krb5_gssapi_context_object*)((char *)obj - XtOffsetOf(krb5_gssapi_context_object, std));
-	
+
 	if(object->creds != GSS_C_NO_CREDENTIAL) {
 		gss_release_cred(&minor_status, &object->creds);
 	}
@@ -206,38 +182,10 @@ void php_krb5_gssapi_context_object_free(zend_object *obj TSRMLS_DC) {
 	}
 	zend_object_std_dtor(obj);
 }
-#endif
 /* }}} */
 
 
 /* {{{ */
-#if PHP_MAJOR_VERSION < 7
-zend_object_value php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC)
-{
-	zend_object_value retval;
-	krb5_gssapi_context_object *object;
-
-	object = emalloc(sizeof(krb5_gssapi_context_object));
-
-	object->context = GSS_C_NO_CONTEXT;
-	object->creds = GSS_C_NO_CREDENTIAL;
-
-	INIT_STD_OBJECT(object->std, ce);
-
-#if PHP_VERSION_ID < 50399
-	zend_hash_copy(object->std.properties, &ce->default_properties,
-	        		(copy_ctor_func_t) zval_add_ref, NULL,
-					sizeof(zval*));
-#else
-	object_properties_init(&(object->std), ce);
-#endif
-
-	retval.handle = zend_objects_store_put(object, php_krb5_gssapi_context_object_dtor, NULL, NULL TSRMLS_CC);
-
-	retval.handlers = &krb5_gssapi_context_handlers;
-	return retval;
-}
-#else
 zend_object *php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC) {
 	krb5_gssapi_context_object *object;
 	object = ecalloc(1, sizeof(krb5_gssapi_context_object) + zend_object_properties_size(ce));
@@ -250,7 +198,6 @@ zend_object *php_krb5_gssapi_context_object_new(zend_class_entry *ce TSRMLS_DC) 
 	object->std.handlers = &krb5_gssapi_context_handlers;
 	return &object->std;
 }
-#endif
 /* }}} */
 
 /* {{{ */
@@ -275,10 +222,8 @@ int php_krb5_gssapi_register_classes(TSRMLS_D)
 	krb5_ce_gssapi_context->create_object = php_krb5_gssapi_context_object_new;
 
 	memcpy(&krb5_gssapi_context_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-#if PHP_MAJOR_VERSION >= 7
 	krb5_gssapi_context_handlers.offset = XtOffsetOf(krb5_gssapi_context_object, std);
 	krb5_gssapi_context_handlers.free_obj = php_krb5_gssapi_context_object_free;
-#endif
 
 	php_krb5_register_gss_channel();
 	return SUCCESS;
@@ -381,16 +326,16 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 	zval* zccache;
 	krb5_ccache_object *ccache = NULL;
 	char *ccname = NULL;
-	
+
 	zend_long type = GSS_C_BOTH;
-	
+
 	char *pname = NULL;
 	gss_buffer_desc nametmp;
 	gss_name_t name = GSS_C_NO_NAME;
 	strsize_t namelen = 0;
-	
+
 	memset(&nametmp, 0, sizeof(nametmp));
-	
+
 
 	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
@@ -406,7 +351,7 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 	ccache = KRB5_CCACHE(zccache);
 
 	if ( ccache->keytab == NULL ) {
-		type = GSS_C_INITIATE;	
+		type = GSS_C_INITIATE;
 	}
 
 	char *oldkrb5ccname = NULL, *oldkrb5ktname = NULL;
@@ -432,8 +377,8 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 		krb5_free_principal(ccache->ctx, ccprinc);
 	}
 
-	
-	if(nametmp.length != 0) { 
+
+	if(nametmp.length != 0) {
 		status = gss_import_name(&minor_status, &nametmp, GSS_C_NO_OID, &name);
 
 		if(GSS_ERROR(status)) {
@@ -493,7 +438,7 @@ PHP_METHOD(GSSAPIContext, inquireCredentials)
 
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
-	
+
 	status = gss_display_name(&minor_status, name, &nametmp, NULL);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
@@ -571,12 +516,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	zval *ztime_rec = NULL;
 	zval *zchannel = NULL;
 
-#if PHP_MAJOR_VERSION >= 7
 	const char *args = "s|sllz/z/z/O";
-#else
-	
-	const char *args = "s|sllzzzO";
-#endif
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
 								&(target.value), &target_len,
@@ -591,7 +531,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	}
 	target.length = target_len;
 	inputtoken.length = inputtoken_len;
-	
+
 	if (zchannel != NULL) {
 		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(zchannel);
 		if ( zchannelobj != NULL ) {
@@ -681,12 +621,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	zval* zdeleg_creds = NULL;
 	zval *zchannel = NULL;
 
-#if PHP_MAJOR_VERSION >= 7
 	const char *args = "s|z/z/z/z/OO";
-#else
-	
-	const char *args = "s|zzzzOO";
-#endif
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
 			&(inputtoken.value), &inputtoken_len,
@@ -700,7 +635,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	}
 
 	inputtoken.length = inputtoken_len;
-	
+
 	if (zchannel != NULL) {
 		krb5_gss_channel_object *zchannelobj = KRB5_GSS_CHANNEL(zchannel);
 		if ( zchannelobj != NULL ) {
@@ -765,22 +700,22 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 krb5_ccache_object *deleg_ccache = KRB5_CCACHE(zdeleg_creds);
 		 krb5_error_code retval = 0;
 		 krb5_principal princ;
-		 
+
 		 if(!deleg_ccache) {
 			 zend_throw_exception(NULL, "Invalid KRB5CCache object given", 0 TSRMLS_CC);
 			 RETURN_FALSE;
 		 }
-		 
+
 		 /* use principal name for ccache initialization */
 		 gss_buffer_desc nametmp;
 		 status = gss_display_name(&minor_status, src_name, &nametmp, NULL);
 		 ASSERT_GSS_SUCCESS(status,minor_status,);
-		 
+
 		 if((retval = krb5_parse_name(deleg_ccache->ctx, nametmp.value, &princ))) {
 			 php_krb5_display_error(deleg_ccache->ctx, retval,  "Failed to parse principal name (%s)" TSRMLS_CC);
 			 RETURN_FALSE;
 		 }
-		 
+
 		 if((retval = krb5_cc_initialize(deleg_ccache->ctx, deleg_ccache->cc, princ))) {
 		 		krb5_free_principal(deleg_ccache->ctx,princ);
 		 		php_krb5_display_error(deleg_ccache->ctx, retval,  "Failed to initialize credential cache (%s)" TSRMLS_CC);
@@ -917,11 +852,7 @@ PHP_METHOD(GSSAPIContext, wrap)
 	memset(&input, 0 , sizeof(input));
 	memset(&output, 0 , sizeof(output));
 
-#if PHP_MAJOR_VERSION >= 7
 	const char *args = "sz/|b";
-#else
-	const char *args = "sz|b";
-#endif
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
 			&(input.value), &input_length,
@@ -971,11 +902,7 @@ PHP_METHOD(GSSAPIContext, unwrap)
 	memset(&input, 0 , sizeof(input));
 	memset(&output, 0 , sizeof(output));
 
-#if PHP_MAJOR_VERSION >= 7
 	const char *args = "sz/";
-#else
-	const char *args = "sz";
-#endif
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
 			&(input.value), &input_length,

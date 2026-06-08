@@ -65,9 +65,6 @@ PHP_MINFO_FUNCTION(krb5);
 extern zend_class_entry *krb5_ce_ccache;
 
 typedef struct _krb5_ccache_object {
-#if PHP_MAJOR_VERSION < 7
-	zend_object std;
-#endif
 	krb5_context ctx;
 	krb5_ccache cc;
 	char *keytab;
@@ -75,9 +72,7 @@ typedef struct _krb5_ccache_object {
 	krb5_timestamp exp_password;
 	krb5_timestamp exp_account;
 	krb5_boolean exp_is_last_req;
-#if PHP_MAJOR_VERSION >= 7
 	zend_object std;
-#endif
 } krb5_ccache_object;
 
 krb5_error_code php_krb5_display_error(krb5_context ctx, krb5_error_code code, char* str TSRMLS_DC);
