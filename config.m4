@@ -85,7 +85,7 @@ if test "$PHP_KRB5" != "no" -o "$PHP_KRB5KADM" != "no"; then
 	fi
 
 	CFLAGS="-Wall ${CFLAGS} ${KRB5_CFLAGS}"
-	LDFLAGS="${LDFLAGS} ${KRB5_LDFLAGS}"
+	LDFLAGS="${LDFLAGS} ${KRB5_LDFLAGS} ${KRB5_LIBS}"
 	LIBS="${LIBS} ${KRB5_LIBS}"
 
 	AC_CHECK_FUNCS(krb5_free_string)
