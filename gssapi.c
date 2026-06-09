@@ -98,6 +98,15 @@ ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_importCredentials, 0, 0, 1)
 ZEND_END_ARG_INFO()
 #endif
 
+#ifdef HAVE_GSS_STORE_CRED_INTO
+ZEND_BEGIN_ARG_INFO_EX(krb5_GSSAPIContext_storeCredentials, 0, 0, 1)
+	ZEND_ARG_INFO(0, ccache)
+	ZEND_ARG_INFO(0, usage)
+	ZEND_ARG_INFO(0, overwrite)
+	ZEND_ARG_INFO(0, default_cred)
+ZEND_END_ARG_INFO()
+#endif
+
 PHP_METHOD(GSSAPIContext, registerAcceptorIdentity);
 PHP_METHOD(GSSAPIContext, acquireCredentials);
 PHP_METHOD(GSSAPIContext, inquireCredentials);
@@ -111,6 +120,9 @@ PHP_METHOD(GSSAPIContext, getTimeRemaining);
 #ifdef HAVE_GSS_EXPORT_CRED
 PHP_METHOD(GSSAPIContext, exportCredentials);
 PHP_METHOD(GSSAPIContext, importCredentials);
+#endif
+#ifdef HAVE_GSS_STORE_CRED_INTO
+PHP_METHOD(GSSAPIContext, storeCredentials);
 #endif
 
 static zend_function_entry krb5_gssapi_context_functions[] = {
@@ -127,6 +139,9 @@ static zend_function_entry krb5_gssapi_context_functions[] = {
 #ifdef HAVE_GSS_EXPORT_CRED
 	PHP_ME(GSSAPIContext, exportCredentials,        krb5_GSSAPIContext_none,                     ZEND_ACC_PUBLIC)
 	PHP_ME(GSSAPIContext, importCredentials,        krb5_GSSAPIContext_importCredentials,        ZEND_ACC_PUBLIC)
+#endif
+#ifdef HAVE_GSS_STORE_CRED_INTO
+	PHP_ME(GSSAPIContext, storeCredentials,         krb5_GSSAPIContext_storeCredentials,         ZEND_ACC_PUBLIC)
 #endif
 	PHP_FE_END
 };
@@ -1006,6 +1021,50 @@ PHP_METHOD(GSSAPIContext, importCredentials)
 		gss_release_cred(&minor_status, &(context->creds));
 	}
 	context->creds = new_creds;
+
+	RETURN_TRUE;
+} /* }}} */
+#endif
+
+#ifdef HAVE_GSS_STORE_CRED_INTO
+/* {{{ proto bool GSSAPIContext::storeCredentials( string $ccache [, int $usage = GSS_C_BOTH [, bool $overwrite = true [, bool $default_cred = false ]]] )
+   Stores the current credentials into the named ccache using gss_store_cred_into() */
+PHP_METHOD(GSSAPIContext, storeCredentials)
+{
+	OM_uint32 status = 0;
+	OM_uint32 minor_status = 0;
+	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
+	char *ccache_name = NULL;
+	strsize_t ccache_len = 0;
+	zend_long cred_usage = GSS_C_BOTH;
+	zend_bool overwrite = 1;
+	zend_bool default_cred = 0;
+	gss_key_value_element_desc ccache_element;
+	gss_key_value_set_desc cred_store;
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|lbb",
+			&ccache_name, &ccache_len,
+			&cred_usage,
+			&overwrite,
+			&default_cred) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if (context->creds == GSS_C_NO_CREDENTIAL) {
+		zend_throw_exception(NULL, "No credentials to store", 0 TSRMLS_CC);
+		return;
+	}
+
+	ccache_element.key = "ccache";
+	ccache_element.value = ccache_name;
+	cred_store.count = 1;
+	cred_store.elements = &ccache_element;
+
+	status = gss_store_cred_into(&minor_status, context->creds,
+	                              (gss_cred_usage_t)cred_usage, GSS_C_NO_OID,
+	                              (OM_uint32)overwrite, (OM_uint32)default_cred,
+	                              &cred_store, NULL, NULL);
+	ASSERT_GSS_SUCCESS(status, minor_status,);
 
 	RETURN_TRUE;
 } /* }}} */
