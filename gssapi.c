@@ -202,7 +202,7 @@ void php_krb5_gssapi_handle_error(OM_uint32 major, OM_uint32 minor TSRMLS_DC)
 /* {{{ */
 void php_krb5_gssapi_context_object_free(zend_object *obj TSRMLS_DC) {
 	OM_uint32 minor_status = 0;
-	krb5_gssapi_context_object *object = (krb5_gssapi_context_object*)((char *)obj - XtOffsetOf(krb5_gssapi_context_object, std));
+	krb5_gssapi_context_object *object = (krb5_gssapi_context_object*)((char *)obj - offsetof(krb5_gssapi_context_object, std));
 
 	if(object->creds != GSS_C_NO_CREDENTIAL) {
 		gss_release_cred(&minor_status, &object->creds);
@@ -253,7 +253,7 @@ int php_krb5_gssapi_register_classes(TSRMLS_D)
 	krb5_ce_gssapi_context->create_object = php_krb5_gssapi_context_object_new;
 
 	memcpy(&krb5_gssapi_context_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	krb5_gssapi_context_handlers.offset = XtOffsetOf(krb5_gssapi_context_object, std);
+	krb5_gssapi_context_handlers.offset = offsetof(krb5_gssapi_context_object, std);
 	krb5_gssapi_context_handlers.free_obj = php_krb5_gssapi_context_object_free;
 
 	php_krb5_register_gss_channel();
@@ -601,7 +601,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	}
 
 	if(ztokenbuf) {
-		zval_dtor(ztokenbuf);
+		zval_ptr_dtor_nogc(ztokenbuf);
 		_ZVAL_STRINGL(ztokenbuf, tokenbuf.value, tokenbuf.length);
 	}
 
@@ -609,12 +609,12 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
 	if(zret_flags) {
-		zval_dtor(zret_flags);
+		zval_ptr_dtor_nogc(zret_flags);
 		ZVAL_LONG(zret_flags, ret_flags);
 	}
 
 	if(ztime_rec) {
-		zval_dtor(ztime_rec);
+		zval_ptr_dtor_nogc(ztime_rec);
 		ZVAL_LONG(ztime_rec, time_rec);
 	}
 
@@ -700,7 +700,7 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 	 }
 
 	 if(ztokenbuf) {
-		 zval_dtor(ztokenbuf);
+		 zval_ptr_dtor_nogc(ztokenbuf);
 		 _ZVAL_STRINGL(ztokenbuf, tokenbuf.value, tokenbuf.length);
 	 }
 
@@ -711,19 +711,19 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 gss_buffer_desc nametmp;
 		 status = gss_display_name(&minor_status, src_name, &nametmp, NULL);
 		 ASSERT_GSS_SUCCESS(status,minor_status,);
-		 zval_dtor(zsrc_name);
+		 zval_ptr_dtor_nogc(zsrc_name);
 		 _ZVAL_STRINGL(zsrc_name, nametmp.value, nametmp.length);
 		 status = gss_release_buffer(&minor_status, &nametmp);
 		 ASSERT_GSS_SUCCESS(status,minor_status,);
 	 }
 
 	 if(zret_flags) {
-		 zval_dtor(zret_flags);
+		 zval_ptr_dtor_nogc(zret_flags);
 		 ZVAL_LONG(zret_flags, ret_flags);
 	 }
 
 	 if(ztime_rec) {
-		 zval_dtor(ztime_rec);
+		 zval_ptr_dtor_nogc(ztime_rec);
 		 ZVAL_LONG(ztime_rec, time_rec);
 	 }
 
@@ -907,7 +907,7 @@ PHP_METHOD(GSSAPIContext, wrap)
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
 	if(zoutput) {
-		zval_dtor(zoutput);
+		zval_ptr_dtor_nogc(zoutput);
 		_ZVAL_STRINGL(zoutput, output.value, output.length);
 	}
 
@@ -955,7 +955,7 @@ PHP_METHOD(GSSAPIContext, unwrap)
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 
 	if(zoutput) {
-		zval_dtor(zoutput);
+		zval_ptr_dtor_nogc(zoutput);
 		_ZVAL_STRINGL(zoutput, output.value, output.length);
 	}
 

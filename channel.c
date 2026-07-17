@@ -57,7 +57,7 @@ zend_class_entry *krb5_ce_gss_channel;
 
 void php_krb5_gss_channel_object_free(zend_object *obj)
 {
-	krb5_gss_channel_object *object = (krb5_gss_channel_object*)((char *)obj - XtOffsetOf(krb5_gss_channel_object, std));
+	krb5_gss_channel_object *object = (krb5_gss_channel_object*)((char *)obj - offsetof(krb5_gss_channel_object, std));
 	if ( object->data.initiator_address.value ) {
 		efree(object->data.initiator_address.value);
 	}
@@ -78,7 +78,7 @@ int php_krb5_register_gss_channel() {
 	krb5_ce_gss_channel = zend_register_internal_class(&gss_channel);
 	krb5_ce_gss_channel->create_object = php_krb5_gss_channel_object_new;
 	memcpy(&gss_channel_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	gss_channel_handlers.offset = XtOffsetOf(krb5_gss_channel_object, std);
+	gss_channel_handlers.offset = offsetof(krb5_gss_channel_object, std);
 	gss_channel_handlers.free_obj = php_krb5_gss_channel_object_free;
 	return SUCCESS;
 }

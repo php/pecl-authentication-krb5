@@ -110,7 +110,7 @@ static void php_krb5_negotiate_auth_object_free_data(krb5_negotiate_auth_object*
 /* {{{ */
 static void php_krb5_negotiate_auth_object_free(zend_object *obj TSRMLS_DC)
 {
-	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)((char *)obj - XtOffsetOf(krb5_negotiate_auth_object, std));
+	krb5_negotiate_auth_object *object = (krb5_negotiate_auth_object*)((char *)obj - offsetof(krb5_negotiate_auth_object, std));
 	php_krb5_negotiate_auth_object_free_data(object);
 	zend_object_std_dtor(obj);
 }
@@ -149,7 +149,7 @@ int php_krb5_negotiate_auth_register_classes(TSRMLS_D) {
 	krb5_ce_negotiate_auth = zend_register_internal_class(&negotiate_auth TSRMLS_CC);
 	krb5_ce_negotiate_auth->create_object = php_krb5_negotiate_auth_object_new;
 	memcpy(&krb5_negotiate_auth_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	krb5_negotiate_auth_handlers.offset = XtOffsetOf(krb5_negotiate_auth_object, std);
+	krb5_negotiate_auth_handlers.offset = offsetof(krb5_negotiate_auth_object, std);
 	krb5_negotiate_auth_handlers.free_obj = php_krb5_negotiate_auth_object_free;
 
 	return SUCCESS;

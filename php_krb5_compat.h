@@ -30,15 +30,15 @@ typedef size_t strsize_t;
 #define _RETVAL_STRINGL(a,b) RETVAL_STRINGL(a,b)
 #define _RETVAL_STRING(a) RETVAL_STRING(a)
 
-#define KRB5_CCACHE(zv) (krb5_ccache_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_ccache_object, std))
-#define KRB5_NEGOTIATE_AUTH(zv)  (krb5_negotiate_auth_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_negotiate_auth_object, std))
-#define KRB5_GSSAPI_CONTEXT(zv)  (krb5_gssapi_context_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_gssapi_context_object, std))
-#define KRB5_GSS_CHANNEL(zv) (krb5_gss_channel_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_gss_channel_object, std))
+#define KRB5_CCACHE(zv) (krb5_ccache_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_ccache_object, std))
+#define KRB5_NEGOTIATE_AUTH(zv)  (krb5_negotiate_auth_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_negotiate_auth_object, std))
+#define KRB5_GSSAPI_CONTEXT(zv)  (krb5_gssapi_context_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_gssapi_context_object, std))
+#define KRB5_GSS_CHANNEL(zv) (krb5_gss_channel_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_gss_channel_object, std))
 
-#define KRB5_KADM(zv) (krb5_kadm5_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_kadm5_object, std))
-#define KRB5_KADM_POLICY(zv) (krb5_kadm5_policy_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_kadm5_policy_object, std))
-#define KRB5_KADM_PRINCIPAL(zv) (krb5_kadm5_principal_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_kadm5_principal_object, std))
-#define KRB5_KADM_TLDATA(zv) (krb5_kadm5_tldata_object*)((char *)Z_OBJ_P(zv) - XtOffsetOf(krb5_kadm5_tldata_object, std))
+#define KRB5_KADM(zv) (krb5_kadm5_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_kadm5_object, std))
+#define KRB5_KADM_POLICY(zv) (krb5_kadm5_policy_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_kadm5_policy_object, std))
+#define KRB5_KADM_PRINCIPAL(zv) (krb5_kadm5_principal_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_kadm5_principal_object, std))
+#define KRB5_KADM_TLDATA(zv) (krb5_kadm5_tldata_object*)((char *)Z_OBJ_P(zv) - offsetof(krb5_kadm5_tldata_object, std))
 
 static zend_always_inline zval* zend_compat_hash_index_find(HashTable *ht, zend_ulong idx)
 {
