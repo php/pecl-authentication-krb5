@@ -93,7 +93,7 @@ static zend_function_entry krb5_kadm5_policy_functions[] = {
 zend_object_handlers krb5_kadm5_policy_handlers;
 
 static void php_krb5_kadm5_policy_object_free(zend_object *obj) {
-	krb5_kadm5_policy_object *object = (krb5_kadm5_policy_object*)((char *)obj - XtOffsetOf(krb5_kadm5_policy_object, std));
+	krb5_kadm5_policy_object *object = (krb5_kadm5_policy_object*)((char *)obj - offsetof(krb5_kadm5_policy_object, std));
 	krb5_kadm5_object *conn = object->conn;
 	if(object->policy) {
 		efree(object->policy);
@@ -110,7 +110,7 @@ int php_krb5_register_kadm5_policy(TSRMLS_D) {
 	krb5_ce_kadm5_policy = zend_register_internal_class(&kadm5_policy TSRMLS_CC);
 	krb5_ce_kadm5_policy->create_object = php_krb5_kadm5_policy_object_new;
 	memcpy(&krb5_kadm5_policy_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	krb5_kadm5_policy_handlers.offset = XtOffsetOf(krb5_kadm5_policy_object, std);
+	krb5_kadm5_policy_handlers.offset = offsetof(krb5_kadm5_policy_object, std);
 	krb5_kadm5_policy_handlers.free_obj = php_krb5_kadm5_policy_object_free;
 	return SUCCESS;
 }

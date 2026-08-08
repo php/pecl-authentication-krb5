@@ -157,7 +157,7 @@ PHP_MINIT_FUNCTION(krb5)
 	krb5_ce_ccache = zend_register_internal_class(&krb5_ccache TSRMLS_CC);
 	krb5_ce_ccache->create_object = php_krb5_ticket_object_new;
 	memcpy(&krb5_ccache_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	krb5_ccache_handlers.offset = XtOffsetOf(krb5_ccache_object, std);
+	krb5_ccache_handlers.offset = offsetof(krb5_ccache_object, std);
 	krb5_ccache_handlers.free_obj = php_krb5_ccache_object_free;
 
 #ifdef HAVE_KADM5
@@ -245,7 +245,7 @@ PHP_MINFO_FUNCTION(krb5)
 /* {{{ */
 static void php_krb5_ccache_object_free(zend_object *obj TSRMLS_DC)
 {
-	krb5_ccache_object *ticket = (krb5_ccache_object*)((char *)obj - XtOffsetOf(krb5_ccache_object, std));
+	krb5_ccache_object *ticket = (krb5_ccache_object*)((char *)obj - offsetof(krb5_ccache_object, std));
 	krb5_cc_destroy(ticket->ctx, ticket->cc);
 	krb5_free_context(ticket->ctx);
 
@@ -304,21 +304,21 @@ static int php_krb5_parse_init_creds_opts(zval *opts, krb5_get_init_creds_opt *c
 	/* forwardable */
 	tmp = zend_compat_hash_find(HASH_OF(opts), "forwardable", sizeof("forwardable"));
 	if (tmp != NULL) {
-		krb5_get_init_creds_opt_set_forwardable(cred_opts, zval_is_true(tmp));
+		krb5_get_init_creds_opt_set_forwardable(cred_opts, zend_is_true(tmp));
 	}
 
 
 	/* proxiable */
 	tmp = zend_compat_hash_find(HASH_OF(opts), "proxiable", sizeof("proxiable"));
 	if (tmp != NULL) {
-		krb5_get_init_creds_opt_set_proxiable(cred_opts, zval_is_true(tmp));
+		krb5_get_init_creds_opt_set_proxiable(cred_opts, zend_is_true(tmp));
 	}
 
 #ifdef KRB5_GET_INIT_CREDS_OPT_CANONICALIZE
 	/* canonicalize */
 	tmp = zend_compat_hash_find(HASH_OF(opts), "canonicalize", sizeof("canonicalize"));
 	if (tmp != NULL) {
-		krb5_get_init_creds_opt_set_canonicalize(cred_opts, zval_is_true(tmp));
+		krb5_get_init_creds_opt_set_canonicalize(cred_opts, zend_is_true(tmp));
 	}
 #endif /* KRB5_GET_INIT_CREDS_OPT_CANONICALIZE */
 

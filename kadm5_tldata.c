@@ -42,7 +42,7 @@ zend_object_handlers krb5_kadm5_tldata_handlers;
 /* KADM5Principal ctor/dtor */
 static void php_krb5_kadm5_tldata_object_free(zend_object *obj TSRMLS_DC)
 {
-	krb5_kadm5_tldata_object *object = (krb5_kadm5_tldata_object*)((char *)obj - XtOffsetOf(krb5_kadm5_tldata_object, std));
+	krb5_kadm5_tldata_object *object = (krb5_kadm5_tldata_object*)((char *)obj - offsetof(krb5_kadm5_tldata_object, std));
 	if ( object->data.tl_data_contents ) {
 		efree(object->data.tl_data_contents);
 	}
@@ -56,7 +56,7 @@ int php_krb5_register_kadm5_tldata(TSRMLS_D) {
 	krb5_ce_kadm5_tldata = zend_register_internal_class(&kadm5_tldata TSRMLS_CC);
 	krb5_ce_kadm5_tldata->create_object = php_krb5_kadm5_tldata_object_new;
 	memcpy(&krb5_kadm5_tldata_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
-	krb5_kadm5_tldata_handlers.offset = XtOffsetOf(krb5_kadm5_tldata_object, std);
+	krb5_kadm5_tldata_handlers.offset = offsetof(krb5_kadm5_tldata_object, std);
 	krb5_kadm5_tldata_handlers.free_obj = php_krb5_kadm5_tldata_object_free;
 	return SUCCESS;
 }
