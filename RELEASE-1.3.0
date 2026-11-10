@@ -1,3 +1,4 @@
-- [CLEANUP] Drop pre-PHP8 support (#7)
-- [FEATURE] Add bindings for gss_export_cred/gss_import_cred (#13)
-- [BUILD] Use pkgconfig to locate libraries by default (#13)
+- [CLEANUP] Drop pre-PHP8 support (#7, thanks to Tim van Dijen)
+- [FIX] PHP 8.6.0alpha2 (#16, thanks to Remi Collet)
+- [FEATURE] Add bindings for gss_export_cred/gss_import_cred (#13, thanks to David Härdeman)
+- [BUILD] Use pkgconfig to locate libraries by default (#13, thanks to David Härdeman)
