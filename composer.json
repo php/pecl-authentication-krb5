@@ -2,6 +2,7 @@
     "name": "pecl/krb5",
     "type": "php-ext",
     "description": "Kerberos/GSSPI and KAdmin bindings for PHP",
+    "license": "MIT",
     "require": {
         "php": ">=8.0.0"
     },
