@@ -596,7 +596,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 
 	if(status & GSS_S_CONTINUE_NEEDED) {
 		RETVAL_FALSE;
-	} else if(status) {
+	} else if(GSS_ERROR(status)) {
 		OM_uint32 tmpstat = 0;
 		gss_release_name(&tmpstat, &targetname);
 		gss_release_buffer(&tmpstat, &tokenbuf);
