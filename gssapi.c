@@ -188,7 +188,7 @@ void php_krb5_gssapi_handle_error(OM_uint32 major, OM_uint32 minor TSRMLS_DC)
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", (char*) error_buffer.value);
 			gss_release_buffer(&minor_status, &error_buffer);
 
-			gss_display_status (&minor_status, minor_status, GSS_C_MECH_CODE,
+			gss_display_status (&minor_status, minor, GSS_C_MECH_CODE,
                                                 GSS_C_NO_OID, &error_context, &error_buffer);
 		}
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s (%ld)", (char*)  error_buffer.value,  (unsigned long int) minor);
@@ -370,7 +370,7 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 
 	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|sl", &zccache, krb5_ce_ccache,
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|s!l", &zccache, krb5_ce_ccache,
 		&(nametmp.value), &namelen,
 		&type) == FAILURE) {
 		RETURN_FALSE;
@@ -435,6 +435,11 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 	     &(context->creds),
 	     NULL,
 	     NULL);
+
+	if(name != GSS_C_NO_NAME) {
+		OM_uint32 tmpstat = 0;
+		gss_release_name(&tmpstat, &name);
+	}
 
 	RESTORE_CONTEXT(oldkrb5ccname, oldkrb5ktname);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
@@ -547,7 +552,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	zval *ztime_rec = NULL;
 	zval *zchannel = NULL;
 
-	const char *args = "s|sllz/z/z/O";
+	const char *args = "s|s!llz/z/z/O";
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
 								&(target.value), &target_len,
@@ -591,7 +596,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 
 	if(status & GSS_S_CONTINUE_NEEDED) {
 		RETVAL_FALSE;
-	} else if(status) {
+	} else if(GSS_ERROR(status)) {
 		OM_uint32 tmpstat = 0;
 		gss_release_name(&tmpstat, &targetname);
 		gss_release_buffer(&tmpstat, &tokenbuf);
@@ -731,26 +736,36 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 krb5_ccache_object *deleg_ccache = KRB5_CCACHE(zdeleg_creds);
 		 krb5_error_code retval = 0;
 		 krb5_principal princ;
+		 gss_buffer_desc nametmp = GSS_C_EMPTY_BUFFER;
+		 OM_uint32 tmpstat = 0;
 
 		 if(!deleg_ccache) {
 			 zend_throw_exception(NULL, "Invalid KRB5CCache object given", 0 TSRMLS_CC);
-			 RETURN_FALSE;
+			 RETVAL_FALSE;
+			 goto cleanup;
 		 }
 
 		 /* use principal name for ccache initialization */
-		 gss_buffer_desc nametmp;
 		 status = gss_display_name(&minor_status, src_name, &nametmp, NULL);
-		 ASSERT_GSS_SUCCESS(status,minor_status,);
+		 if(GSS_ERROR(status)) {
+			 php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
+			 RETVAL_FALSE;
+			 goto cleanup;
+		 }
 
-		 if((retval = krb5_parse_name(deleg_ccache->ctx, nametmp.value, &princ))) {
+		 retval = krb5_parse_name(deleg_ccache->ctx, nametmp.value, &princ);
+		 gss_release_buffer(&tmpstat, &nametmp);
+		 if(retval) {
 			 php_krb5_display_error(deleg_ccache->ctx, retval,  "Failed to parse principal name (%s)" TSRMLS_CC);
-			 RETURN_FALSE;
+			 RETVAL_FALSE;
+			 goto cleanup;
 		 }
 
 		 if((retval = krb5_cc_initialize(deleg_ccache->ctx, deleg_ccache->cc, princ))) {
 		 		krb5_free_principal(deleg_ccache->ctx,princ);
 		 		php_krb5_display_error(deleg_ccache->ctx, retval,  "Failed to initialize credential cache (%s)" TSRMLS_CC);
-		 		RETURN_FALSE;
+		 		RETVAL_FALSE;
+		 		goto cleanup;
 		 }
 
 		 krb5_free_principal(deleg_ccache->ctx,princ);
@@ -760,12 +775,21 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 if(GSS_ERROR(status)) {
 			 php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
 			 zend_throw_exception(NULL, "Failure while imporing delegated ticket", 0 TSRMLS_CC);
-			 RETURN_FALSE;
+			 RETVAL_FALSE;
+			 goto cleanup;
 		 }
 	 }
 
-	 status = gss_release_name(&minor_status, &src_name);
-	 ASSERT_GSS_SUCCESS(status,minor_status,);
+cleanup:
+	 if(deleg_creds != GSS_C_NO_CREDENTIAL) {
+		 OM_uint32 tmpstat = 0;
+		 gss_release_cred(&tmpstat, &deleg_creds);
+	 }
+
+	 if(src_name != GSS_C_NO_NAME) {
+		 OM_uint32 tmpstat = 0;
+		 gss_release_name(&tmpstat, &src_name);
+	 }
 
 } /* }}} */
 

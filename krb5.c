@@ -527,7 +527,16 @@ static krb5_error_code php_krb5_verify_tgt(krb5_ccache_object *ccache, krb5_cred
 	have_cursor = 1;
 
 	memset(&entry, 0, sizeof(entry));
-	if ((retval = krb5_kt_next_entry(ccache->ctx, ktab, &entry, &cursor))) {
+	retval = krb5_kt_next_entry(ccache->ctx, ktab, &entry, &cursor);
+	/* End the iteration before the keytab is used for the verification
+	 * and before it is closed: the cursor refers to the keytab (and MIT
+	 * holds the keytab's lock while iterating), so ending it after
+	 * krb5_kt_close() works on freed memory. */
+	have_cursor = 0;
+	if ((r2val = krb5_kt_end_seq_get(ccache->ctx, ktab, &cursor))) {
+		php_krb5_display_error(ccache->ctx, r2val, "Failed to free keytab cursor (%s)" TSRMLS_CC);
+	}
+	if (retval) {
 		break;
 	}
 	have_entry = 1;
@@ -546,12 +555,12 @@ static krb5_error_code php_krb5_verify_tgt(krb5_ccache_object *ccache, krb5_cred
 	}
     } while (0);
 
-        if (have_ktab && (r2val = krb5_kt_close(ccache->ctx, ktab))) {
-		php_krb5_display_error(ccache->ctx, r2val, "Failed to close keytab (%s)" TSRMLS_CC);
-	}
-
 	if (have_cursor && (r2val = krb5_kt_end_seq_get(ccache->ctx, ktab, &cursor))) {
 		php_krb5_display_error(ccache->ctx, r2val, "Failed to free keytab cursor (%s)" TSRMLS_CC);
+	}
+
+	if (have_ktab && (r2val = krb5_kt_close(ccache->ctx, ktab))) {
+		php_krb5_display_error(ccache->ctx, r2val, "Failed to close keytab (%s)" TSRMLS_CC);
 	}
 
 	if (have_entry &&
@@ -1106,7 +1115,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 
 	array_init(return_value);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &prefix, &pfx_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &prefix, &pfx_len) == FAILURE) {
 		return;
 	}
 	if (pfx_len == 0) prefix = NULL;
