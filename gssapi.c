@@ -188,7 +188,7 @@ void php_krb5_gssapi_handle_error(OM_uint32 major, OM_uint32 minor TSRMLS_DC)
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", (char*) error_buffer.value);
 			gss_release_buffer(&minor_status, &error_buffer);
 
-			gss_display_status (&minor_status, minor_status, GSS_C_MECH_CODE,
+			gss_display_status (&minor_status, minor, GSS_C_MECH_CODE,
                                                 GSS_C_NO_OID, &error_context, &error_buffer);
 		}
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s (%ld)", (char*)  error_buffer.value,  (unsigned long int) minor);
