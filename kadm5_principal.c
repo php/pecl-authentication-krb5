@@ -394,7 +394,7 @@ PHP_METHOD(KADM5Principal, rename)
 	strsize_t dst_name_len, dst_pw_len;
 	krb5_principal dst_princ;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s", &dst_name, &dst_name_len,
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|s!", &dst_name, &dst_name_len,
 								&dst_pw, &dst_pw_len) == FAILURE) {
 		RETURN_FALSE;
 	}

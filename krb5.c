@@ -1115,7 +1115,7 @@ PHP_METHOD(KRB5CCache, getTktAttrs)
 
 	array_init(return_value);
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &prefix, &pfx_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &prefix, &pfx_len) == FAILURE) {
 		return;
 	}
 	if (pfx_len == 0) prefix = NULL;

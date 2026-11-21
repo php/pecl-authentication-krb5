@@ -370,7 +370,7 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 
 	krb5_gssapi_context_object *context = KRB5_THIS_GSSAPI_CONTEXT;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|sl", &zccache, krb5_ce_ccache,
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|s!l", &zccache, krb5_ce_ccache,
 		&(nametmp.value), &namelen,
 		&type) == FAILURE) {
 		RETURN_FALSE;
@@ -552,7 +552,7 @@ PHP_METHOD(GSSAPIContext, initSecContext)
 	zval *ztime_rec = NULL;
 	zval *zchannel = NULL;
 
-	const char *args = "s|sllz/z/z/O";
+	const char *args = "s|s!llz/z/z/O";
 
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, args,
 								&(target.value), &target_len,

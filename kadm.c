@@ -322,7 +322,7 @@ PHP_METHOD(KADM5, getPrincipals)
 
 	int i;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &sexp, &sexp_len) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &sexp, &sexp_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
@@ -358,7 +358,7 @@ PHP_METHOD(KADM5, createPrincipal)
 	char *pw = NULL;
 	strsize_t pw_len = 0;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|s", &princ, krb5_ce_kadm5_principal, &pw, &pw_len) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "O|s!", &princ, krb5_ce_kadm5_principal, &pw, &pw_len) == FAILURE) {
 		return;
 	}
 
@@ -500,7 +500,7 @@ PHP_METHOD(KADM5, getPolicies)
 
 	int i;
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s", &sexp, &sexp_len) == FAILURE) {
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s!", &sexp, &sexp_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 
