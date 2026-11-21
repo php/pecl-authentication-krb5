@@ -436,6 +436,11 @@ PHP_METHOD(GSSAPIContext, acquireCredentials)
 	     NULL,
 	     NULL);
 
+	if(name != GSS_C_NO_NAME) {
+		OM_uint32 tmpstat = 0;
+		gss_release_name(&tmpstat, &name);
+	}
+
 	RESTORE_CONTEXT(oldkrb5ccname, oldkrb5ktname);
 	ASSERT_GSS_SUCCESS(status,minor_status,);
 } /* }}} */
@@ -731,26 +736,36 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 krb5_ccache_object *deleg_ccache = KRB5_CCACHE(zdeleg_creds);
 		 krb5_error_code retval = 0;
 		 krb5_principal princ;
+		 gss_buffer_desc nametmp = GSS_C_EMPTY_BUFFER;
+		 OM_uint32 tmpstat = 0;
 
 		 if(!deleg_ccache) {
 			 zend_throw_exception(NULL, "Invalid KRB5CCache object given", 0 TSRMLS_CC);
-			 RETURN_FALSE;
+			 RETVAL_FALSE;
+			 goto cleanup;
 		 }
 
 		 /* use principal name for ccache initialization */
-		 gss_buffer_desc nametmp;
 		 status = gss_display_name(&minor_status, src_name, &nametmp, NULL);
-		 ASSERT_GSS_SUCCESS(status,minor_status,);
+		 if(GSS_ERROR(status)) {
+			 php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
+			 RETVAL_FALSE;
+			 goto cleanup;
+		 }
 
-		 if((retval = krb5_parse_name(deleg_ccache->ctx, nametmp.value, &princ))) {
+		 retval = krb5_parse_name(deleg_ccache->ctx, nametmp.value, &princ);
+		 gss_release_buffer(&tmpstat, &nametmp);
+		 if(retval) {
 			 php_krb5_display_error(deleg_ccache->ctx, retval,  "Failed to parse principal name (%s)" TSRMLS_CC);
-			 RETURN_FALSE;
+			 RETVAL_FALSE;
+			 goto cleanup;
 		 }
 
 		 if((retval = krb5_cc_initialize(deleg_ccache->ctx, deleg_ccache->cc, princ))) {
 		 		krb5_free_principal(deleg_ccache->ctx,princ);
 		 		php_krb5_display_error(deleg_ccache->ctx, retval,  "Failed to initialize credential cache (%s)" TSRMLS_CC);
-		 		RETURN_FALSE;
+		 		RETVAL_FALSE;
+		 		goto cleanup;
 		 }
 
 		 krb5_free_principal(deleg_ccache->ctx,princ);
@@ -760,12 +775,21 @@ PHP_METHOD(GSSAPIContext, acceptSecContext)
 		 if(GSS_ERROR(status)) {
 			 php_krb5_gssapi_handle_error(status, minor_status TSRMLS_CC);
 			 zend_throw_exception(NULL, "Failure while imporing delegated ticket", 0 TSRMLS_CC);
-			 RETURN_FALSE;
+			 RETVAL_FALSE;
+			 goto cleanup;
 		 }
 	 }
 
-	 status = gss_release_name(&minor_status, &src_name);
-	 ASSERT_GSS_SUCCESS(status,minor_status,);
+cleanup:
+	 if(deleg_creds != GSS_C_NO_CREDENTIAL) {
+		 OM_uint32 tmpstat = 0;
+		 gss_release_cred(&tmpstat, &deleg_creds);
+	 }
+
+	 if(src_name != GSS_C_NO_NAME) {
+		 OM_uint32 tmpstat = 0;
+		 gss_release_name(&tmpstat, &src_name);
+	 }
 
 } /* }}} */
 
